@@ -72,7 +72,7 @@ export class Visual implements IVisual {
         // @ts-expect-error
         const colorPalette: IColorPalette = this.host.colorPalette;
 
-        this.div.replaceChildren()
+        this.div.replaceChildren();
 
         const {
             viewport: { width, height },
@@ -106,6 +106,14 @@ export class Visual implements IVisual {
             .height(height)
             .color((d) => colorPalette.getColor(d.name).value)
             .labelOrientation('angular')(this.div);
+
+        setTimeout(
+            () =>
+                document
+                    .querySelectorAll('.sunburst-viz .angular-label')
+                    .forEach((el: HTMLElement) => (el.style.fontSize = '1px')),
+            0,
+        );
 
         this.events.renderingFinished(options);
     }
