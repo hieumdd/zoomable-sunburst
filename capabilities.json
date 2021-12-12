@@ -1,31 +1,58 @@
 {
     "dataRoles": [
         {
-            "displayName": "Category Data",
-            "name": "category",
+            "displayName": "ID",
+            "name": "id",
             "kind": "Grouping"
         },
         {
-            "displayName": "Measure Data",
-            "name": "measure",
-            "kind": "Measure"
+            "displayName": "Name",
+            "name": "name",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Parent",
+            "name": "parent",
+            "kind": "Grouping"
         }
     ],
-    "objects": {
-    },
+    "objects": {},
     "dataViewMappings": [
         {
             "conditions": [
                 {
-                    "measure": {
+                    "id": {
+                        "max": 1
+                    },
+                    "name": {
+                        "max": 1
+                    },
+                    "parent": {
                         "max": 1
                     }
                 }
             ],
-            "single": {
-                "role": "measure"
+            "table": {
+                "rows": {
+                    "select": [
+                        {
+                            "for": {
+                                "in": "id"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "name"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "parent"
+                            }
+                        }
+                    ]
+                }
             }
         }
     ]
-    
 }
