@@ -13,9 +13,9 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
 // import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import IVisualHost = powerbi.extensibility.IVisualHost;
+import IVisualEventService = powerbi.extensibility.IVisualEventService;
+import IColorPalette = powerbi.extensibility.IColorPalette;
 
-import * as d3 from 'd3';
-// type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
 import Sunburst from 'sunburst-chart';
 // import { mock } from './mock';
 
@@ -52,20 +52,28 @@ const buildTree = (nodes: Data[], parent: ID = null): Node[] => {
 const transformNode = (node: Node): Node => ({
     ...node,
     children: node.children.map((child) => transformNode(child)),
-    ...!(node.children.length > 0) && { value: 1}
+    ...(!(node.children.length > 0) && { value: 1 }),
 });
 
-const color = d3.scaleOrdinal(d3.schemeAccent);
-
 export class Visual implements IVisual {
+    private events: IVisualEventService;
     private host: IVisualHost;
     private div: HTMLElement;
 
     constructor(options: VisualConstructorOptions) {
+        this.host = options.host;
+        this.events = options.host.eventService;
         this.div = options.element;
     }
 
     public update(options: VisualUpdateOptions) {
+        this.events.renderingStarted(options);
+
+        // @ts-expect-error
+        const colorPalette: IColorPalette = this.host.colorPalette;
+
+        this.div.replaceChildren()
+
         const {
             viewport: { width, height },
         } = options;
@@ -90,12 +98,15 @@ export class Visual implements IVisual {
 
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
-        console.log(dataRoot);
+
         Sunburst()
             // .data(mock)
             .data(dataRoot)
             .width(width)
             .height(height)
-            .color((d) => color(d.name))(this.div);
+            .color((d) => colorPalette.getColor(d.name).value)
+            .labelOrientation('angular')(this.div);
+
+        this.events.renderingFinished(options);
     }
 }
