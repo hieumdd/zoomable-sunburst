@@ -9,9 +9,7 @@ import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructor
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
-import IVisualHost = powerbi.extensibility.IVisualHost;
 import IVisualEventService = powerbi.extensibility.IVisualEventService;
-import IColorPalette = powerbi.extensibility.IColorPalette;
 
 import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
@@ -20,7 +18,6 @@ import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInst
 import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
-// import { mock } from './mock';
 
 type ID = number | null;
 type Data = {
@@ -64,12 +61,10 @@ const transformNode = (node: Node): Node => ({
 
 export class Visual implements IVisual {
     private events: IVisualEventService;
-    private host: IVisualHost;
     private div: HTMLElement;
     private visualSettings: VisualSettings;
 
     constructor(options: VisualConstructorOptions) {
-        this.host = options.host;
         this.events = options.host.eventService;
         this.div = options.element;
     }
@@ -85,9 +80,6 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions) {
         this.events.renderingStarted(options);
 
-        // @ts-expect-error
-        const colorPalette: IColorPalette = this.host.colorPalette;
-
         const dataView: DataView = options.dataViews[0];
         const {
             viewport: { width, height },
@@ -100,7 +92,6 @@ export class Visual implements IVisual {
         );
 
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        console.log(this.visualSettings);
         const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
         const { fontSize } = this.visualSettings.labelText;
 
@@ -108,18 +99,11 @@ export class Visual implements IVisual {
         const colorBuilder: ScaleLinear<number, string> = scaleLinear()
             .domain(colorDomain)
             // @ts-expect-error
-            .range<string>([lowColor, midColor, highColor]);
+            .range([lowColor, midColor, highColor]);
 
-        const data: Data[] = rows
-            .map(
-                (row) =>
-                    <Data>(
-                        (<unknown>(
-                            Object.fromEntries(roles.map((k, i) => [k, row[i]]))
-                        ))
-                    ),
-            )
-            .map((row) => row);
+        const data: Data[] = rows.map(
+            (row) => <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
+        );
 
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
@@ -138,7 +122,9 @@ export class Visual implements IVisual {
         setTimeout(() =>
             document
                 .querySelectorAll('.sunburst-viz .angular-label')
-                .forEach((el: HTMLElement) => (el.style.fontSize = `${fontSize}px`)),
+                .forEach(
+                    (el: HTMLElement) => (el.style.fontSize = `${fontSize}px`),
+                ),
         );
 
         this.events.renderingFinished(options);
