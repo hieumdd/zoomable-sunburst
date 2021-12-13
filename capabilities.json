@@ -1,31 +1,122 @@
 {
     "dataRoles": [
         {
-            "displayName": "Category Data",
-            "name": "category",
+            "displayName": "ID",
+            "name": "id",
             "kind": "Grouping"
         },
         {
-            "displayName": "Measure Data",
-            "name": "measure",
-            "kind": "Measure"
+            "displayName": "Parent",
+            "name": "parent_id",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Label",
+            "name": "label",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Value",
+            "name": "value",
+            "kind": "Grouping"
         }
     ],
     "objects": {
+        "arcColor": {
+            "displayName": "Arc Color",
+            "properties": {
+                "lowColor": {
+                    "displayName": "Low Color",
+                    "description": "Color for low value",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "midColor": {
+                    "displayName": "Mid Color",
+                    "description": "Color for mid value",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "highColor": {
+                    "displayName": "High Color",
+                    "description": "Color for high color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "labelText": {
+            "displayName": "Label Text",
+            "properties": {
+                "fontSize": {
+                    "displayName": "Font Size",
+                    "description": "Label Font Size",
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        }
     },
     "dataViewMappings": [
         {
             "conditions": [
                 {
-                    "measure": {
+                    "id": {
+                        "max": 1
+                    },
+                    "parent_id": {
+                        "max": 1
+                    },
+                    "label": {
+                        "max": 1
+                    },
+                    "value": {
                         "max": 1
                     }
                 }
             ],
-            "single": {
-                "role": "measure"
+            "table": {
+                "rows": {
+                    "select": [
+                        {
+                            "for": {
+                                "in": "id"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "parent_id"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "label"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "value"
+                            }
+                        }
+                    ]
+                }
             }
         }
     ]
-    
 }
