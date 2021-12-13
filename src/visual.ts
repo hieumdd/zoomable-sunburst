@@ -17,7 +17,7 @@ import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 
-import { color } from 'd3';
+import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 // import { mock } from './mock';
