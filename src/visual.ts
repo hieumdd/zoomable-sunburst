@@ -17,7 +17,6 @@ import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 
-import * as d3 from 'd3';
 import { color } from 'd3';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
@@ -102,8 +101,8 @@ export class Visual implements IVisual {
 
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
         console.log(this.visualSettings);
-        const { lowColor, midColor, highColor } =
-            this.visualSettings.conditionalColor;
+        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
+        const { fontSize } = this.visualSettings.labelText;
 
         // @ts-expect-error
         const colorBuilder: ScaleLinear<number, string> = scaleLinear()
@@ -136,13 +135,11 @@ export class Visual implements IVisual {
             .color((d: Node) => color(colorBuilder(d.value)).formatHex())
             .labelOrientation('angular')(this.div);
 
-        // setTimeout(
-        //     () =>
-        //         document
-        //             .querySelectorAll('.sunburst-viz .angular-label')
-        //             .forEach((el: HTMLElement) => (el.style.fontSize = '1px')),
-        //     0,
-        // );
+        setTimeout(() =>
+            document
+                .querySelectorAll('.sunburst-viz .angular-label')
+                .forEach((el: HTMLElement) => (el.style.fontSize = `${fontSize}px`)),
+        );
 
         this.events.renderingFinished(options);
     }
