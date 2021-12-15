@@ -28,7 +28,7 @@ type Data = {
 };
 
 type Node = {
-    name: string;
+    label: string;
     children: Node[];
     id?: ID;
     parent_id?: ID;
@@ -108,6 +108,8 @@ export class Visual implements IVisual {
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
 
+        console.log(dataRoot);
+
         this.div.replaceChildren();
 
         Sunburst()
@@ -116,8 +118,9 @@ export class Visual implements IVisual {
             .height(height)
             .size('size')
             .label('label')
+            .tooltipContent(({ label }: Node) => label)
             .radiusScaleExponent(1)
-            .color((d: Node) => color(colorBuilder(d.value)).formatHex())
+            .color(({ value }: Node) => color(colorBuilder(value)).formatHex())
             .labelOrientation('angular')(this.div);
 
         setTimeout(() =>
