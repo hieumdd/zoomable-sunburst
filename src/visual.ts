@@ -116,6 +116,7 @@ export class Visual implements IVisual {
             .height(height)
             .size('size')
             .label('label')
+            .radiusScaleExponent(1)
             .color((d: Node) => color(colorBuilder(d.value)).formatHex())
             .labelOrientation('angular')(this.div);
 
