@@ -4,9 +4,9 @@ import { dataViewObjectsParser } from 'powerbi-visuals-utils-dataviewutils';
 import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 
 export class ArcColorSettings {
-    public lowColor: string = '#166534';
+    public lowColor: string = '#991b1b';
     public midColor: string = '#ffffff';
-    public highColor: string = '#991b1b';
+    public highColor: string = '#166534';
 }
 
 export class LabelTextSettings {
