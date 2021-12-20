@@ -120,16 +120,20 @@ export class Visual implements IVisual {
             .tooltipContent(({ label }: Node) => label)
             .radiusScaleExponent(1)
             .color(({ value }: Node) => color(colorBuilder(value)).formatHex())
-            .strokeColor(() => "#333333")
+            .strokeColor(() => '#333333')
             .labelOrientation('angular')(this.div);
 
-        setTimeout(() =>
+        setTimeout(() => {
             document
-                .querySelectorAll('.sunburst-viz .angular-label')
-                .forEach(
-                    (el: HTMLElement) => (el.style.fontSize = `${fontSize}px`),
-                ),
-        );
+                .querySelectorAll<HTMLElement>('.sunburst-viz .angular-label')
+                .forEach((el) => (el.style.fontSize = `${fontSize}px`));
+            document.querySelector<HTMLElement>(
+                '.sunburst-tooltip',
+            ).style.maxWidth = '900px';
+            document
+                .querySelectorAll<HTMLElement>('.main-arc')
+                .forEach((el) => (el.style.strokeWidth = '0.5px'));
+        });
 
         this.events.renderingFinished(options);
     }
