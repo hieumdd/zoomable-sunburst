@@ -15,6 +15,7 @@ import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 
+import { min, max } from 'lodash';
 import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
@@ -35,8 +36,6 @@ type Node = {
     size?: 1;
     value?: number;
 };
-
-const colorDomain = [0, 5, 10];
 
 const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
     return nodes
@@ -79,34 +78,37 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) {
         this.events.renderingStarted(options);
-
+        
         const dataView: DataView = options.dataViews[0];
-        const {
-            viewport: { width, height },
-        } = options;
-        const {
-            table: { columns, rows },
-        } = dataView;
-        const roles: string[] = columns.map(
-            ({ roles }) => Object.keys(roles)[0],
-        );
+        const { table } = dataView;
+        const { columns, rows } = table;
+        const { viewport } = options;
+        const { width, height } = viewport;
 
-        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
-        const { fontSize } = this.visualSettings.labelText;
-
-        // @ts-expect-error
-        const colorBuilder: ScaleLinear<number, string> = scaleLinear()
-            .domain(colorDomain)
-            // @ts-expect-error
-            .range([lowColor, midColor, highColor]);
+        const roles = columns
+            .map(({ roles }) => Object.entries(roles))
+            .map(([col, _]) => col)
+            .map(([col, _]) => col);
 
         const data: Data[] = rows.map(
             (row) => <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
         );
+        console.log(data)
 
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
+
+        const [minVal, maxVal] = [min, max].map((fn) =>
+            fn(data.map((i) => i.value)),
+        );
+        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
+        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
+        const { fontSize } = this.visualSettings.labelText;
+        // @ts-expect-error
+        const colorBuilder: ScaleLinear<number, string> = scaleLinear()
+            .domain([minVal, (minVal + maxVal) / 2, maxVal])
+            // @ts-expect-error
+            .range([lowColor, midColor, highColor]);
 
         this.div.replaceChildren();
 
