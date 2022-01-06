@@ -26,6 +26,7 @@ type Data = {
     parent_id: ID;
     label: string;
     value: number;
+    size: 1;
 };
 
 type Node = {
@@ -33,7 +34,7 @@ type Node = {
     children: Node[];
     id?: ID;
     parent_id?: ID;
-    size?: 1;
+    size: 1;
     value?: number;
 };
 
@@ -51,12 +52,6 @@ const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
             [],
         );
 };
-
-const transformNode = (node: Node): Node => ({
-    ...node,
-    children: node.children.map((child) => transformNode(child)),
-    ...(!(node.children.length > 0) && { size: 1 }),
-});
 
 export class Visual implements IVisual {
     private events: IVisualEventService;
@@ -80,39 +75,52 @@ export class Visual implements IVisual {
         this.events.renderingStarted(options);
 
         const dataView: DataView = options.dataViews[0];
+        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
+        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
+        const { fontSize } = this.visualSettings.labelText;
+
         const { table } = dataView;
         const { columns, rows } = table;
         const { viewport } = options;
         const { width, height } = viewport;
+
+        console.log(table);
 
         const roles = columns
             .map(({ roles }) => Object.entries(roles))
             .map(([col, _]) => col)
             .map(([col, _]) => col);
 
-        const data: Data[] = rows.map(
-            (row) => <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
-        );
-
-        const dataNodes = buildTree(data);
-        const dataRoot = transformNode(dataNodes[0]);
+        const staticData: Data[] = rows
+            .map(
+                (row) =>
+                    <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
+            )
+            .map((point) => ({ ...point, size: 1 }));
 
         const [minVal, maxVal] = [min, max].map((fn) =>
-            fn(data.map((i) => i.value)),
+            fn(staticData.map((i) => i.value)),
         );
-        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
-        const { fontSize } = this.visualSettings.labelText;
+
         // @ts-expect-error
         const colorBuilder: ScaleLinear<number, string> = scaleLinear()
             .domain([minVal, (minVal + maxVal) / 2, maxVal])
             // @ts-expect-error
             .range([lowColor, midColor, highColor]);
 
+        const dynamicData = staticData.map((point) => ({
+            ...point,
+            color: point.value
+                ? color(colorBuilder(point.value)).formatHex()
+                : '#333333',
+        }));
+
+        const data = buildTree(dynamicData)[0];
+
         this.div.replaceChildren();
 
         Sunburst()
-            .data(dataRoot)
+            .data(data)
             .width(width)
             .height(height)
             .size('size')
@@ -120,8 +128,8 @@ export class Visual implements IVisual {
             .showLabels(false)
             .tooltipContent(({ label }: Node) => label)
             .radiusScaleExponent(1)
-            .color(({ value }: Node) => color(colorBuilder(value)).formatHex())
-            .strokeColor(() => '#333333')
+            .color('color')
+            // .strokeColor(() => '#333333')
             .labelOrientation('angular')(this.div);
 
         setTimeout(() => {
