@@ -78,17 +78,22 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) {
         this.events.renderingStarted(options);
-
+        
         const dataView: DataView = options.dataViews[0];
         const { table } = dataView;
         const { columns, rows } = table;
         const { viewport } = options;
         const { width, height } = viewport;
-        const refs = columns.map(({ expr }: any) => expr.ref || expr.arg.ref);
+
+        const roles = columns
+            .map(({ roles }) => Object.entries(roles))
+            .map(([col, _]) => col)
+            .map(([col, _]) => col);
 
         const data: Data[] = rows.map(
-            (row) => <Data>Object.fromEntries(refs.map((k, i) => [k, row[i]])),
+            (row) => <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
         );
+        console.log(data)
 
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
