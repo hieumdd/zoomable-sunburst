@@ -3,22 +3,12 @@
         {
             "displayName": "ID",
             "name": "id",
-            "kind": "Grouping",
-            "requiredTypes": [
-                {
-                    "integer": true
-                }
-            ]
+            "kind": "Grouping"
         },
         {
             "displayName": "Parent",
             "name": "parent_id",
-            "kind": "Grouping",
-            "requiredTypes": [
-                {
-                    "integer": true
-                }
-            ]
+            "kind": "Grouping"
         },
         {
             "displayName": "Label",

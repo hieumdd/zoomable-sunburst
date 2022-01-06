@@ -20,7 +20,7 @@ import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
-type ID = number | null;
+type ID = string | number | null;
 type Data = {
     id: ID;
     parent_id: ID;
@@ -78,7 +78,7 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) {
         this.events.renderingStarted(options);
-        
+
         const dataView: DataView = options.dataViews[0];
         const { table } = dataView;
         const { columns, rows } = table;
@@ -93,7 +93,6 @@ export class Visual implements IVisual {
         const data: Data[] = rows.map(
             (row) => <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
         );
-        console.log(data)
 
         const dataNodes = buildTree(data);
         const dataRoot = transformNode(dataNodes[0]);
