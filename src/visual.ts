@@ -110,7 +110,7 @@ export class Visual implements IVisual {
 
         const dynamicData = staticData.map((point) => ({
             ...point,
-            color: point.value
+            color: point.value !== undefined
                 ? color(colorBuilder(point.value)).formatHex()
                 : '#333333',
         }));
