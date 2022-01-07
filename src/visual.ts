@@ -84,8 +84,6 @@ export class Visual implements IVisual {
         const { viewport } = options;
         const { width, height } = viewport;
 
-        console.log(table);
-
         const roles = columns
             .map(({ roles }) => Object.entries(roles))
             .map(([col, _]) => col)
@@ -110,9 +108,10 @@ export class Visual implements IVisual {
 
         const dynamicData = staticData.map((point) => ({
             ...point,
-            color: point.value !== undefined
-                ? color(colorBuilder(point.value)).formatHex()
-                : '#333333',
+            color:
+                point.value !== undefined
+                    ? color(colorBuilder(point.value)).formatHex()
+                    : '#333333',
         }));
 
         const data = buildTree(dynamicData)[0];
@@ -127,7 +126,9 @@ export class Visual implements IVisual {
             .label('id')
             .showLabels(false)
             .tooltipTitle(({ label }: Node) => label)
-            .tooltipContent(({ value }: Node) => value.toString())
+            .tooltipContent(({ value }: Node) =>
+                value !== undefined ? value.toString() : 'null',
+            )
             .radiusScaleExponent(1)
             .color('color')
             // .strokeColor(() => '#333333')
