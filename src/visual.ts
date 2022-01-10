@@ -15,7 +15,7 @@ import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 
-import { min, max } from 'lodash';
+import { min, max, zip } from 'lodash';
 import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
@@ -78,73 +78,71 @@ export class Visual implements IVisual {
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
         const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
         const { fontSize } = this.visualSettings.labelText;
-
-        const { table } = dataView;
-        const { columns, rows } = table;
         const { viewport } = options;
         const { width, height } = viewport;
 
-        const roles = columns
-            .map(({ roles }) => Object.entries(roles))
-            .map(([col, _]) => col)
-            .map(([col, _]) => col);
+        const { categories, values } = dataView.categorical;
 
-        const staticData: Data[] = rows
-            .map(
-                (row) =>
-                    <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
-            )
-            .map((point) => ({ ...point, size: 1 }));
-
-        const [minVal, maxVal] = [min, max].map((fn) =>
-            fn(staticData.map((i) => i.value)),
+        const staticData: Data[] = zip(
+            ...[...categories, ...values]
+                .map(({ source: { roles }, values }) => [
+                    Object.keys(roles)[0],
+                    values,
+                ])
+                .map(([roles, values]: [string, powerbi.PrimitiveValue[]]) =>
+                    values.map((value) => ({ [roles]: value })),
+                ),
+        ).map((values: Object[]) =>
+            values.reduce((acc, cur) => ({ ...acc, ...cur })),
         );
 
-        // @ts-expect-error
-        const colorBuilder: ScaleLinear<number, string> = scaleLinear()
-            .domain([minVal, (minVal + maxVal) / 2, maxVal])
-            // @ts-expect-error
-            .range([lowColor, midColor, highColor]);
+        console.log(staticData);
 
-        const dynamicData = staticData.map((point) => ({
-            ...point,
-            color:
-                point.value !== undefined
-                    ? color(colorBuilder(point.value)).formatHex()
-                    : '#333333',
-        }));
+        // // @ts-expect-error
+        // const colorBuilder: ScaleLinear<number, string> = scaleLinear()
+        //     .domain([minVal, (minVal + maxVal) / 2, maxVal])
+        //     // @ts-expect-error
+        //     .range([lowColor, midColor, highColor]);
 
-        const data = buildTree(dynamicData)[0];
+        // const dynamicData = staticData.map((point) => ({
+        //     ...point,
+        //     color:
+        //         point.value !== undefined
+        //             ? color(colorBuilder(point.value)).formatHex()
+        //             : '#333333',
+        // }));
 
-        this.div.replaceChildren();
+        // const data = buildTree(dynamicData)[0];
 
-        Sunburst()
-            .data(data)
-            .width(width)
-            .height(height)
-            .size('size')
-            .label('id')
-            .showLabels(false)
-            .tooltipTitle(({ label }: Node) => label)
-            .tooltipContent(({ value }: Node) =>
-                value !== undefined ? value.toString() : 'null',
-            )
-            .radiusScaleExponent(1)
-            .color('color')
-            // .strokeColor(() => '#333333')
-            .labelOrientation('angular')(this.div);
+        // this.div.replaceChildren();
 
-        setTimeout(() => {
-            document
-                .querySelectorAll<HTMLElement>('.sunburst-viz .angular-label')
-                .forEach((el) => (el.style.fontSize = `${fontSize}px`));
-            document.querySelector<HTMLElement>(
-                '.sunburst-tooltip',
-            ).style.maxWidth = '900px';
-            document
-                .querySelectorAll<HTMLElement>('.main-arc')
-                .forEach((el) => (el.style.strokeWidth = '0.5px'));
-        });
+        // Sunburst()
+        //     .data(data)
+        //     .width(width)
+        //     .height(height)
+        //     .size('size')
+        //     .label('id')
+        //     .showLabels(false)
+        //     .tooltipTitle(({ label }: Node) => label)
+        //     .tooltipContent(({ value }: Node) =>
+        //         value !== undefined ? value.toString() : 'null',
+        //     )
+        //     .radiusScaleExponent(1)
+        //     .color('color')
+        //     // .strokeColor(() => '#333333')
+        //     .labelOrientation('angular')(this.div);
+
+        // setTimeout(() => {
+        //     document
+        //         .querySelectorAll<HTMLElement>('.sunburst-viz .angular-label')
+        //         .forEach((el) => (el.style.fontSize = `${fontSize}px`));
+        //     document.querySelector<HTMLElement>(
+        //         '.sunburst-tooltip',
+        //     ).style.maxWidth = '900px';
+        //     document
+        //         .querySelectorAll<HTMLElement>('.main-arc')
+        //         .forEach((el) => (el.style.strokeWidth = '0.5px'));
+        // });
 
         this.events.renderingFinished(options);
     }
