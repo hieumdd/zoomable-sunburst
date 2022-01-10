@@ -15,6 +15,11 @@ import { VisualSettings } from './settings';
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 
+import powerbiVisualsApi from 'powerbi-visuals-api';
+import VisualObjectInstance = powerbi.VisualObjectInstance;
+import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
+import VisualEnumerationInstanceKinds = powerbiVisualsApi.VisualEnumerationInstanceKinds;
+
 import { min, max, zip } from 'lodash';
 import { color } from 'd3-color';
 import { ScaleLinear, scaleLinear } from 'd3-scale';
@@ -66,9 +71,33 @@ export class Visual implements IVisual {
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
     ): VisualObjectInstanceEnumeration {
-        const settings: VisualSettings =
-            this.visualSettings || <VisualSettings>VisualSettings.getDefault();
-        return VisualSettings.enumerateObjectInstances(settings, options);
+        let objectName = options.objectName;
+        let objectEnumeration: VisualObjectInstance[] = [];
+
+        if (!this.visualSettings || !this.visualSettings.arc) {
+            return objectEnumeration;
+        }
+
+        switch (objectName) {
+            case 'arc':
+                objectEnumeration.push({
+                    objectName: objectName,
+                    properties: {
+                        arcColor: this.visualSettings.arc.arcColor,
+                    },
+                    altConstantValueSelector: null,
+                    selector: dataViewWildcard.createDataViewWildcardSelector(
+                        dataViewWildcard.DataViewWildcardMatchingOption
+                            .InstancesAndTotals,
+                    ),
+                    propertyInstanceKind: {
+                        fill: VisualEnumerationInstanceKinds.ConstantOrRule,
+                    },
+                });
+                break;
+        }
+        console.log(objectEnumeration);
+        return objectEnumeration;
     }
 
     public update(options: VisualUpdateOptions) {
@@ -76,7 +105,6 @@ export class Visual implements IVisual {
 
         const dataView: DataView = options.dataViews[0];
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
         const { fontSize } = this.visualSettings.labelText;
         const { viewport } = options;
         const { width, height } = viewport;
@@ -95,8 +123,6 @@ export class Visual implements IVisual {
         ).map((values: Object[]) =>
             values.reduce((acc, cur) => ({ ...acc, ...cur })),
         );
-
-        console.log(staticData);
 
         // // @ts-expect-error
         // const colorBuilder: ScaleLinear<number, string> = scaleLinear()

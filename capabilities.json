@@ -22,34 +22,12 @@
         }
     ],
     "objects": {
-        "arcColor": {
+        "arc": {
             "displayName": "Arc Color",
             "properties": {
-                "lowColor": {
-                    "displayName": "Low Color",
-                    "description": "Color for low value",
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "midColor": {
-                    "displayName": "Mid Color",
-                    "description": "Color for mid value",
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "highColor": {
-                    "displayName": "High Color",
-                    "description": "Color for high color",
+                "arcColor": {
+                    "displayName": "Arc Color",
+                    "description": "Color",
                     "type": {
                         "fill": {
                             "solid": {
