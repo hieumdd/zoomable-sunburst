@@ -3,22 +3,12 @@
         {
             "displayName": "ID",
             "name": "id",
-            "kind": "Grouping",
-            "requiredTypes": [
-                {
-                    "integer": true
-                }
-            ]
+            "kind": "Grouping"
         },
         {
             "displayName": "Parent",
             "name": "parent_id",
-            "kind": "Grouping",
-            "requiredTypes": [
-                {
-                    "integer": true
-                }
-            ]
+            "kind": "Grouping"
         },
         {
             "displayName": "Label",
@@ -28,12 +18,7 @@
         {
             "displayName": "Value",
             "name": "value",
-            "kind": "GroupingOrMeasure",
-            "requiredTypes": [
-                {
-                    "numeric": true
-                }
-            ]
+            "kind": "GroupingOrMeasure"
         }
     ],
     "objects": {
@@ -130,6 +115,42 @@
                             }
                         }
                     ],
+                    "dataReductionAlgorithm": {
+                        "top": {
+                            "count": 30000
+                        }
+                    }
+                }
+            },
+            "categorical": {
+                "categories": {
+                    "select": [
+                        {
+                            "bind": {
+                                "to": "id"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "parent_id"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "label"
+                            }
+                        }
+                    ],
+                    "dataReductionAlgorithm": {
+                        "top": {
+                            "count": 30000
+                        }
+                    }
+                },
+                "values": {
+                    "bind": {
+                        "to": "value"
+                    },
                     "dataReductionAlgorithm": {
                         "top": {
                             "count": 30000
