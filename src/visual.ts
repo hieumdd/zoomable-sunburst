@@ -57,6 +57,8 @@ const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
         );
 };
 
+const gradient = (domain, range) => scaleLinear().domain(domain).range(range);
+
 export class Visual implements IVisual {
     private div: HTMLElement;
     private settings: VisualSettings;
@@ -97,52 +99,60 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions) {
-        if (options.dataViews && options.dataViews[0]) {
-            const dataView: DataView = options.dataViews[0];
-            this.settings = VisualSettings.parse<VisualSettings>(dataView);
-            console.log(this.settings);
-            console.log(dataView);
+        const dataView: DataView = options.dataViews[0];
+        this.settings = VisualSettings.parse<VisualSettings>(dataView);
+        console.log(dataView);
 
-            const { fontSize } = this.settings.labelText;
-            const { viewport } = options;
-            const { width, height } = viewport;
+        const { fontSize } = this.settings.labelText;
+        const {
+            viewport: { width, height },
+        } = options;
 
+        const { metadata } = dataView;
+        const { categories, values } = dataView.categorical;
 
-            const { metadata } = dataView;
-            const { categories, values } = dataView.categorical;
-
-            const columnsData = [...categories, ...values]
-                .map(({ source: { roles }, objects, values }) => [
-                    Object.keys(roles)[0],
-                    objects,
-                    values,
-                ])
-                .map(
-                    ([roles, objects, values]: [
-                        string,
-                        powerbi.DataViewObjects[],
-                        powerbi.PrimitiveValue[],
-                    ]) =>
-                        zip(values, objects).map(([value, object]) => ({
-                            [roles]: value,
-                            color: object
-                                ? object.arc.arcColor.solid.color
-                                : null,
-                        })),
-                );
-            const staticData: Data[] = zip(...columnsData).map((values) =>
-                values.reduce((acc, cur) => ({
-                    ...acc,
-                    ...cur,
-                    color: cur.color || acc.color || this.settings.arc.arcColor,
-                })),
+        const columnsData = [...categories, ...values]
+            .map(({ source: { roles }, objects, values }) => [
+                Object.keys(roles)[0],
+                objects,
+                values,
+            ])
+            .map(
+                ([roles, objects, values]: [
+                    string,
+                    powerbi.DataViewObjects[],
+                    powerbi.PrimitiveValue[],
+                ]) =>
+                    zip(values, objects).map(([value, object]) => ({
+                        [roles]: value,
+                        color: object ? object.arc.arcColor.solid.color : null,
+                    })),
             );
 
-            console.log(staticData);
-        } else {
+
+        // ! TODO: WHEN NO GRADIENT
+        const gradientOptions: any = Object.values(
             // @ts-expect-error
-            this.clear();
-        }
+            metadata.objectsRules?.arc.arcColor.gradient.options,
+        )[0];
+        const gradientBuilder = (attr) =>
+            ['min', 'mid', 'max']
+                .map((x) => gradientOptions[x])
+                .filter((x) => x !== undefined)
+                .map((x) => x[attr]);
+        const colorBuilder = gradientOptions
+            ? gradient(gradientBuilder('color'), gradientBuilder('value'))
+            : (_) => this.settings.arc.arcColor;
+
+        const staticData: Data[] = zip(...columnsData).map((values) =>
+            values.reduce((acc, cur) => ({
+                ...acc,
+                ...cur,
+                color: cur.color || acc.color || colorBuilder(cur.value),
+            })),
+        );
+
+        console.log(staticData);
 
         // // @ts-expect-error
         // const colorBuilder: ScaleLinear<number, string> = scaleLinear()
