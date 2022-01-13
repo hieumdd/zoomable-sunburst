@@ -69,6 +69,37 @@
                     }
                 }
             ],
+            "table": {
+                "rows": {
+                    "select": [
+                        {
+                            "for": {
+                                "in": "id"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "parent_id"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "label"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "value"
+                            }
+                        }
+                    ],
+                    "dataReductionAlgorithm": {
+                        "top": {
+                            "count": 30000
+                        }
+                    }
+                }
+            },
             "categorical": {
                 "categories": {
                     "select": [
@@ -85,11 +116,6 @@
                         {
                             "bind": {
                                 "to": "label"
-                            }
-                        },
-                        {
-                            "bind": {
-                                "to": "value"
                             }
                         }
                     ],

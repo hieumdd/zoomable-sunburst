@@ -5,6 +5,7 @@ import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 
 export class ArcSetings {
     public arcColor: string = '#991b1b';
+    public objectRules: any = null;
 }
 
 export class LabelTextSettings {

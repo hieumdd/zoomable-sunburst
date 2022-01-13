@@ -5,20 +5,19 @@ import 'regenerator-runtime/runtime';
 // powerbi
 import './../style/visual.less';
 import powerbi from 'powerbi-visuals-api';
+
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
-import IVisualEventService = powerbi.extensibility.IVisualEventService;
 
-import { VisualSettings } from './settings';
-import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
-import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
-
-import powerbiVisualsApi from 'powerbi-visuals-api';
 import VisualObjectInstance = powerbi.VisualObjectInstance;
+import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
+import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
+import { VisualSettings } from './settings';
+
 import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
-import VisualEnumerationInstanceKinds = powerbiVisualsApi.VisualEnumerationInstanceKinds;
+import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { min, max, zip } from 'lodash';
 import { color } from 'd3-color';
@@ -59,22 +58,20 @@ const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
 };
 
 export class Visual implements IVisual {
-    private events: IVisualEventService;
     private div: HTMLElement;
-    private visualSettings: VisualSettings;
+    private settings: VisualSettings;
 
     constructor(options: VisualConstructorOptions) {
-        this.events = options.host.eventService;
         this.div = options.element;
     }
 
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
-    ): VisualObjectInstanceEnumeration {
+    ): VisualObjectInstance[] {
         let objectName = options.objectName;
         let objectEnumeration: VisualObjectInstance[] = [];
 
-        if (!this.visualSettings || !this.visualSettings.arc) {
+        if (!this.settings || !this.settings.arc) {
             return objectEnumeration;
         }
 
@@ -83,46 +80,69 @@ export class Visual implements IVisual {
                 objectEnumeration.push({
                     objectName: objectName,
                     properties: {
-                        arcColor: this.visualSettings.arc.arcColor,
+                        arcColor: this.settings.arc.arcColor,
+                    },
+                    propertyInstanceKind: {
+                        arcColor: VisualEnumerationInstanceKinds.ConstantOrRule,
                     },
                     altConstantValueSelector: null,
                     selector: dataViewWildcard.createDataViewWildcardSelector(
                         dataViewWildcard.DataViewWildcardMatchingOption
                             .InstancesAndTotals,
                     ),
-                    propertyInstanceKind: {
-                        fill: VisualEnumerationInstanceKinds.ConstantOrRule,
-                    },
                 });
                 break;
         }
-        console.log(objectEnumeration);
         return objectEnumeration;
     }
 
     public update(options: VisualUpdateOptions) {
-        this.events.renderingStarted(options);
+        if (options.dataViews && options.dataViews[0]) {
+            const dataView: DataView = options.dataViews[0];
+            this.settings = VisualSettings.parse<VisualSettings>(dataView);
+            console.log(this.settings);
+            console.log(dataView);
 
-        const dataView: DataView = options.dataViews[0];
-        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        const { fontSize } = this.visualSettings.labelText;
-        const { viewport } = options;
-        const { width, height } = viewport;
+            const { fontSize } = this.settings.labelText;
+            const { viewport } = options;
+            const { width, height } = viewport;
 
-        const { categories, values } = dataView.categorical;
 
-        const staticData: Data[] = zip(
-            ...[...categories, ...values]
-                .map(({ source: { roles }, values }) => [
+            const { metadata } = dataView;
+            const { categories, values } = dataView.categorical;
+
+            const columnsData = [...categories, ...values]
+                .map(({ source: { roles }, objects, values }) => [
                     Object.keys(roles)[0],
+                    objects,
                     values,
                 ])
-                .map(([roles, values]: [string, powerbi.PrimitiveValue[]]) =>
-                    values.map((value) => ({ [roles]: value })),
-                ),
-        ).map((values: Object[]) =>
-            values.reduce((acc, cur) => ({ ...acc, ...cur })),
-        );
+                .map(
+                    ([roles, objects, values]: [
+                        string,
+                        powerbi.DataViewObjects[],
+                        powerbi.PrimitiveValue[],
+                    ]) =>
+                        zip(values, objects).map(([value, object]) => ({
+                            [roles]: value,
+                            color: object
+                                ? object.arc.arcColor.solid.color
+                                : null,
+                        })),
+                );
+            const staticData: Data[] = zip(...columnsData).map((values) =>
+                values.reduce((acc, cur) => ({
+                    ...acc,
+                    ...cur,
+                    color: cur.color || acc.color || this.settings.arc.arcColor,
+                })),
+            );
+
+            console.log(staticData);
+        } else {
+            // @ts-expect-error
+            this.clear();
+        }
 
         // // @ts-expect-error
         // const colorBuilder: ScaleLinear<number, string> = scaleLinear()
@@ -169,7 +189,5 @@ export class Visual implements IVisual {
         //         .querySelectorAll<HTMLElement>('.main-arc')
         //         .forEach((el) => (el.style.strokeWidth = '0.5px'));
         // });
-
-        this.events.renderingFinished(options);
     }
 }
