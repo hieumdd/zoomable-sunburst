@@ -8,11 +8,6 @@ export class ArcSetings {
     public objectRules: any = null;
 }
 
-export class LabelTextSettings {
-    public fontSize: number = 20;
-}
-
 export class VisualSettings extends DataViewObjectsParser {
     public arc: ArcSetings = new ArcSetings();
-    public labelText: LabelTextSettings = new LabelTextSettings();
 }

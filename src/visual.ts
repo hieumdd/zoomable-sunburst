@@ -13,32 +13,60 @@ import DataView = powerbi.DataView;
 
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
-import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import { VisualSettings } from './settings';
 
 import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
-import { min, max, zip } from 'lodash';
-import { color } from 'd3-color';
-import { ScaleLinear, scaleLinear } from 'd3-scale';
+import { zip } from 'lodash';
+import { scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
+type GradientColor = {
+    color: string;
+    value: number;
+};
+
+type GradientOptions = {
+    min: GradientColor;
+    max: GradientColor;
+    mid?: GradientColor;
+};
+
+type MetaData = powerbi.DataViewMetadata & {
+    objectsRules: {
+        arc: {
+            arcColor: {
+                gradient: {
+                    options: {
+                        [key: string]: GradientOptions;
+                    };
+                };
+            };
+        };
+    };
+};
+
+type ColorBuilder = (value: number) => string;
+
 type ID = string | number | null;
+
 type Data = {
     id: ID;
-    parent_id: ID;
     label: string;
-    value: number;
+    color: string;
     size: 1;
+    parent_id?: ID;
+    value?: number;
 };
 
 type Node = {
+    id: ID;
     label: string;
+    color: string;
     children: Node[];
-    id?: ID;
-    parent_id?: ID;
     size: 1;
+    parent_id?: ID;
     value?: number;
 };
 
@@ -57,7 +85,9 @@ const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
         );
 };
 
-const gradient = (domain, range) => scaleLinear().domain(domain).range(range);
+const gradient = (domain: any[], range: number[], value: number): string =>
+    // @ts-expect-error
+    scaleLinear().domain(domain).range(range)(value);
 
 export class Visual implements IVisual {
     private div: HTMLElement;
@@ -101,20 +131,17 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions) {
         const dataView: DataView = options.dataViews[0];
         this.settings = VisualSettings.parse<VisualSettings>(dataView);
-        console.log(dataView);
 
-        const { fontSize } = this.settings.labelText;
         const {
             viewport: { width, height },
         } = options;
 
-        const { metadata } = dataView;
-        const { categories, values } = dataView.categorical;
+        const { categories = [], values = [] } = dataView.categorical;
 
         const columnsData = [...categories, ...values]
             .map(({ source: { roles }, objects, values }) => [
                 Object.keys(roles)[0],
-                objects,
+                objects || [...Array(values.length)],
                 values,
             ])
             .map(
@@ -125,79 +152,74 @@ export class Visual implements IVisual {
                 ]) =>
                     zip(values, objects).map(([value, object]) => ({
                         [roles]: value,
-                        color: object ? object.arc.arcColor.solid.color : null,
+                        color: object
+                            ? object.arc.arcColor.solid.color
+                            : undefined,
                     })),
             );
 
+        const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
-        // ! TODO: WHEN NO GRADIENT
-        const gradientOptions: any = Object.values(
-            // @ts-expect-error
-            metadata.objectsRules?.arc.arcColor.gradient.options,
-        )[0];
-        const gradientBuilder = (attr) =>
-            ['min', 'mid', 'max']
-                .map((x) => gradientOptions[x])
-                .filter((x) => x !== undefined)
-                .map((x) => x[attr]);
-        const colorBuilder = gradientOptions
-            ? gradient(gradientBuilder('color'), gradientBuilder('value'))
-            : (_) => this.settings.arc.arcColor;
-
-        const staticData: Data[] = zip(...columnsData).map((values) =>
+        const dataRaw: Data[] = zip(...columnsData).map((values) =>
             values.reduce((acc, cur) => ({
                 ...acc,
                 ...cur,
+                size: 1,
                 color: cur.color || acc.color || colorBuilder(cur.value),
             })),
         );
 
-        console.log(staticData);
+        const data = buildTree(dataRaw)[0];
 
-        // // @ts-expect-error
-        // const colorBuilder: ScaleLinear<number, string> = scaleLinear()
-        //     .domain([minVal, (minVal + maxVal) / 2, maxVal])
-        //     // @ts-expect-error
-        //     .range([lowColor, midColor, highColor]);
+        this.div.replaceChildren();
 
-        // const dynamicData = staticData.map((point) => ({
-        //     ...point,
-        //     color:
-        //         point.value !== undefined
-        //             ? color(colorBuilder(point.value)).formatHex()
-        //             : '#333333',
-        // }));
+        Sunburst()
+            .data(data)
+            .width(width)
+            .height(height)
+            .size('size')
+            .label('id')
+            .color('color')
+            .showLabels(false)
+            .tooltipTitle(({ label }: Node) => label)
+            .tooltipContent(({ value }: Node) =>
+                value !== undefined ? value.toString() : 'null',
+            )
+            .radiusScaleExponent(1)
+            .labelOrientation('angular')(this.div);
 
-        // const data = buildTree(dynamicData)[0];
+        setTimeout(() => {
+            document.querySelector<HTMLElement>(
+                '.sunburst-tooltip',
+            ).style.maxWidth = '900px';
+            document
+                .querySelectorAll<HTMLElement>('.main-arc')
+                .forEach((el) => (el.style.strokeWidth = '0.5px'));
+        });
+    }
 
-        // this.div.replaceChildren();
+    private colorBuilder(metadata: MetaData): ColorBuilder {
+        if (metadata.objectsRules) {
+            const options = Object.values(
+                metadata.objectsRules.arc.arcColor.gradient.options,
+            )[0];
 
-        // Sunburst()
-        //     .data(data)
-        //     .width(width)
-        //     .height(height)
-        //     .size('size')
-        //     .label('id')
-        //     .showLabels(false)
-        //     .tooltipTitle(({ label }: Node) => label)
-        //     .tooltipContent(({ value }: Node) =>
-        //         value !== undefined ? value.toString() : 'null',
-        //     )
-        //     .radiusScaleExponent(1)
-        //     .color('color')
-        //     // .strokeColor(() => '#333333')
-        //     .labelOrientation('angular')(this.div);
+            const gradientBuilder = (attr: string) =>
+                ['min', 'mid', 'max']
+                    .map((x) => options[x])
+                    .filter((x: GradientColor) => x !== undefined)
+                    .map((x: GradientColor) => x[attr]);
 
-        // setTimeout(() => {
-        //     document
-        //         .querySelectorAll<HTMLElement>('.sunburst-viz .angular-label')
-        //         .forEach((el) => (el.style.fontSize = `${fontSize}px`));
-        //     document.querySelector<HTMLElement>(
-        //         '.sunburst-tooltip',
-        //     ).style.maxWidth = '900px';
-        //     document
-        //         .querySelectorAll<HTMLElement>('.main-arc')
-        //         .forEach((el) => (el.style.strokeWidth = '0.5px'));
-        // });
+            return (value) =>
+                value
+                    ? gradient(
+                          gradientBuilder('color'),
+                          gradientBuilder('value'),
+                          value,
+                      )
+                    : this.settings.arc.arcColor;
+        } else {
+            return (_: number) => this.settings.arc.arcColor;
+        }
     }
 }

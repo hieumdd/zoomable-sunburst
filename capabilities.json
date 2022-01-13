@@ -37,18 +37,6 @@
                     }
                 }
             }
-        },
-        "labelText": {
-            "displayName": "Label Text",
-            "properties": {
-                "fontSize": {
-                    "displayName": "Font Size",
-                    "description": "Label Font Size",
-                    "type": {
-                        "numeric": true
-                    }
-                }
-            }
         }
     },
     "dataViewMappings": [
