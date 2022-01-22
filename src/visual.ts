@@ -107,24 +107,24 @@ export class Visual implements IVisual {
             return objectEnumeration;
         }
 
-        // switch (objectName) {
-        //     case 'arc':
-        //         objectEnumeration.push({
-        //             objectName: objectName,
-        //             properties: {
-        //                 arcColor: this.settings.arc.arcColor,
-        //             },
-        //             propertyInstanceKind: {
-        //                 arcColor: VisualEnumerationInstanceKinds.ConstantOrRule,
-        //             },
-        //             altConstantValueSelector: null,
-        //             selector: dataViewWildcard.createDataViewWildcardSelector(
-        //                 dataViewWildcard.DataViewWildcardMatchingOption
-        //                     .InstancesAndTotals,
-        //             ),
-        //         });
-        //         break;
-        // }
+        switch (objectName) {
+            case 'arc':
+                objectEnumeration.push({
+                    objectName: objectName,
+                    properties: {
+                        arcColor: this.settings.arc.arcColor,
+                    },
+                    propertyInstanceKind: {
+                        arcColor: VisualEnumerationInstanceKinds.ConstantOrRule,
+                    },
+                    altConstantValueSelector: null,
+                    selector: dataViewWildcard.createDataViewWildcardSelector(
+                        dataViewWildcard.DataViewWildcardMatchingOption
+                            .InstancesAndTotals,
+                    ),
+                });
+                break;
+        }
         return objectEnumeration;
     }
 
@@ -185,7 +185,7 @@ export class Visual implements IVisual {
             .tooltipContent(({ value }: Node) =>
                 value !== undefined && value !== null
                     ? value.toString()
-                    : 'null',
+                    : '',
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
