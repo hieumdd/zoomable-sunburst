@@ -22,52 +22,18 @@
         }
     ],
     "objects": {
-        "arcColor": {
+        "arc": {
             "displayName": "Arc Color",
             "properties": {
-                "lowColor": {
-                    "displayName": "Low Color",
-                    "description": "Color for low value",
+                "arcColor": {
+                    "displayName": "Arc Color",
+                    "description": "Color",
                     "type": {
                         "fill": {
                             "solid": {
                                 "color": true
                             }
                         }
-                    }
-                },
-                "midColor": {
-                    "displayName": "Mid Color",
-                    "description": "Color for mid value",
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "highColor": {
-                    "displayName": "High Color",
-                    "description": "Color for high color",
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "labelText": {
-            "displayName": "Label Text",
-            "properties": {
-                "fontSize": {
-                    "displayName": "Font Size",
-                    "description": "Label Font Size",
-                    "type": {
-                        "numeric": true
                     }
                 }
             }
@@ -91,37 +57,6 @@
                     }
                 }
             ],
-            "table": {
-                "rows": {
-                    "select": [
-                        {
-                            "for": {
-                                "in": "id"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "parent_id"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "label"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "value"
-                            }
-                        }
-                    ],
-                    "dataReductionAlgorithm": {
-                        "top": {
-                            "count": 30000
-                        }
-                    }
-                }
-            },
             "categorical": {
                 "categories": {
                     "select": [
@@ -138,6 +73,11 @@
                         {
                             "bind": {
                                 "to": "label"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "value"
                             }
                         }
                     ],
