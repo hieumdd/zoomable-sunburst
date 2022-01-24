@@ -165,9 +165,10 @@ export class Visual implements IVisual {
             .data(data)
             .width(width)
             .height(height)
+            .showLabels(false)
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
-            .showLabels(false)
+            .sort((a, b) => b.data.value - a.data.value)
             .tooltipTitle(({ data: { id } }) => id)
             .tooltipContent(({ data: { value } }) =>
                 value !== undefined && value !== null ? value.toString() : '',
