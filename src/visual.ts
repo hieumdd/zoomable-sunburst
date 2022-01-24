@@ -19,6 +19,7 @@ import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { zip } from 'lodash';
+import { stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
@@ -60,30 +61,14 @@ type Data = {
     value?: number;
 };
 
-type Node = {
-    id: ID;
-    label: string;
-    color: string;
-    children: Node[];
-    size: 1;
-    parent_id?: ID;
-    value?: number;
-};
-
-const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
-    return nodes
-        .filter((node: Data) => node.parent_id === parent_id)
-        .reduce(
-            (tree, node) => [
-                ...tree,
-                {
-                    ...node,
-                    children: buildTree(nodes, node.id),
-                },
-            ],
-            [],
-        );
-};
+// type Node = {
+//     id: ID;
+//     label: string;
+//     color: string;
+//     size: 1;
+//     parent_id?: ID;
+//     value?: number;
+// };
 
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
@@ -169,7 +154,10 @@ export class Visual implements IVisual {
             })),
         );
 
-        const data = buildTree(dataRaw)[0];
+        const data = stratify<Data>()
+            .id(({ id }: Data) => id.toString())
+            // @ts-expect-error
+            .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
 
         this.div.replaceChildren();
 
@@ -177,15 +165,12 @@ export class Visual implements IVisual {
             .data(data)
             .width(width)
             .height(height)
-            .size('size')
-            .label('id')
-            .color('color')
+            .size(({ data: { size } }) => size)
+            .color(({ data: { color } }) => color)
             .showLabels(false)
-            .tooltipTitle(({ label }: Node) => label)
-            .tooltipContent(({ value }: Node) =>
-                value !== undefined && value !== null
-                    ? value.toString()
-                    : '',
+            .tooltipTitle(({ data: { id } }) => id)
+            .tooltipContent(({ data: { value } }) =>
+                value !== undefined && value !== null ? value.toString() : '',
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
