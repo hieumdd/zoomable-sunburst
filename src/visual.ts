@@ -5,116 +5,159 @@ import 'regenerator-runtime/runtime';
 // powerbi
 import './../style/visual.less';
 import powerbi from 'powerbi-visuals-api';
+
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
-import IVisualEventService = powerbi.extensibility.IVisualEventService;
 
-import { VisualSettings } from './settings';
-import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
+import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
+import { VisualSettings } from './settings';
 
-import { min, max } from 'lodash';
-import { color } from 'd3-color';
-import { ScaleLinear, scaleLinear } from 'd3-scale';
+import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
+import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
+
+import { zip } from 'lodash';
+import { stratify } from 'd3-hierarchy';
+import { scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
-type ID = string | number | null;
-type Data = {
-    id: ID;
-    parent_id: ID;
-    label: string;
+type GradientColor = {
+    color: string;
     value: number;
-    size: 1;
 };
 
-type Node = {
+type GradientOptions = {
+    min: GradientColor;
+    max: GradientColor;
+    mid?: GradientColor;
+};
+
+type MetaData = powerbi.DataViewMetadata & {
+    objectsRules: {
+        arc: {
+            arcColor: {
+                gradient: {
+                    options: {
+                        [key: string]: GradientOptions;
+                    };
+                };
+            };
+        };
+    };
+};
+
+type ColorBuilder = (value: number) => string;
+
+type ID = string | number | null;
+
+type Data = {
+    id: ID;
     label: string;
-    children: Node[];
-    id?: ID;
-    parent_id?: ID;
+    color: string;
     size: 1;
+    parent_id?: ID;
     value?: number;
 };
 
-const buildTree = (nodes: Data[], parent_id: ID = null): Node[] => {
-    return nodes
-        .filter((node: Data) => node.parent_id === parent_id)
-        .reduce(
-            (tree, node) => [
-                ...tree,
-                {
-                    ...node,
-                    children: buildTree(nodes, node.id),
-                },
-            ],
-            [],
-        );
-};
+// type Node = {
+//     id: ID;
+//     label: string;
+//     color: string;
+//     size: 1;
+//     parent_id?: ID;
+//     value?: number;
+// };
+
+const gradient = (domain: any[], range: number[], value: number): string =>
+    // @ts-expect-error
+    scaleLinear().domain(domain).range(range)(value);
 
 export class Visual implements IVisual {
-    private events: IVisualEventService;
     private div: HTMLElement;
-    private visualSettings: VisualSettings;
+    private settings: VisualSettings;
 
     constructor(options: VisualConstructorOptions) {
-        this.events = options.host.eventService;
         this.div = options.element;
     }
 
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
-    ): VisualObjectInstanceEnumeration {
-        const settings: VisualSettings =
-            this.visualSettings || <VisualSettings>VisualSettings.getDefault();
-        return VisualSettings.enumerateObjectInstances(settings, options);
+    ): VisualObjectInstance[] {
+        let objectName = options.objectName;
+        let objectEnumeration: VisualObjectInstance[] = [];
+
+        if (!this.settings || !this.settings.arc) {
+            return objectEnumeration;
+        }
+
+        switch (objectName) {
+            case 'arc':
+                objectEnumeration.push({
+                    objectName: objectName,
+                    properties: {
+                        arcColor: this.settings.arc.arcColor,
+                    },
+                    propertyInstanceKind: {
+                        arcColor: VisualEnumerationInstanceKinds.ConstantOrRule,
+                    },
+                    altConstantValueSelector: null,
+                    selector: dataViewWildcard.createDataViewWildcardSelector(
+                        dataViewWildcard.DataViewWildcardMatchingOption
+                            .InstancesAndTotals,
+                    ),
+                });
+                break;
+        }
+        return objectEnumeration;
     }
 
     public update(options: VisualUpdateOptions) {
-        this.events.renderingStarted(options);
-
         const dataView: DataView = options.dataViews[0];
-        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
-        const { lowColor, midColor, highColor } = this.visualSettings.arcColor;
-        const { fontSize } = this.visualSettings.labelText;
+        this.settings = VisualSettings.parse<VisualSettings>(dataView);
 
-        const { table } = dataView;
-        const { columns, rows } = table;
-        const { viewport } = options;
-        const { width, height } = viewport;
+        const {
+            viewport: { width, height },
+        } = options;
 
-        const roles = columns
-            .map(({ roles }) => Object.entries(roles))
-            .map(([col, _]) => col)
-            .map(([col, _]) => col);
+        const { categories = [], values = [] } = dataView.categorical;
 
-        const staticData: Data[] = rows
+        const columnsData = [...categories, ...values]
+            .map(({ source: { roles }, objects, values }) => [
+                Object.keys(roles)[0],
+                objects || [...Array(values.length)],
+                values,
+            ])
             .map(
-                (row) =>
-                    <Data>Object.fromEntries(roles.map((k, i) => [k, row[i]])),
-            )
-            .map((point) => ({ ...point, size: 1 }));
+                ([roles, objects, values]: [
+                    string,
+                    powerbi.DataViewObjects[],
+                    powerbi.PrimitiveValue[],
+                ]) =>
+                    zip(values, objects).map(([value, object]) => ({
+                        [roles]: value,
+                        color: object
+                            ? object.arc.arcColor.solid.color
+                            : undefined,
+                    })),
+            );
 
-        const [minVal, maxVal] = [min, max].map((fn) =>
-            fn(staticData.map((i) => i.value)),
+        const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
+
+        const dataRaw: Data[] = zip(...columnsData).map((values) =>
+            values.reduce((acc, cur) => ({
+                ...acc,
+                ...cur,
+                size: 1,
+                color: cur.color || acc.color || colorBuilder(cur.value),
+            })),
         );
 
-        // @ts-expect-error
-        const colorBuilder: ScaleLinear<number, string> = scaleLinear()
-            .domain([minVal, (minVal + maxVal) / 2, maxVal])
+        const data = stratify<Data>()
+            .id(({ id }: Data) => id.toString())
             // @ts-expect-error
-            .range([lowColor, midColor, highColor]);
-
-        const dynamicData = staticData.map((point) => ({
-            ...point,
-            color:
-                point.value !== undefined
-                    ? color(colorBuilder(point.value)).formatHex()
-                    : '#333333',
-        }));
-
-        const data = buildTree(dynamicData)[0];
+            .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
 
         this.div.replaceChildren();
 
@@ -122,22 +165,18 @@ export class Visual implements IVisual {
             .data(data)
             .width(width)
             .height(height)
-            .size('size')
-            .label('id')
             .showLabels(false)
-            .tooltipTitle(({ label }: Node) => label)
-            .tooltipContent(({ value }: Node) =>
-                value !== undefined ? value.toString() : 'null',
+            .size(({ data: { size } }) => size)
+            .color(({ data: { color } }) => color)
+            .sort((a, b) => b.data.value - a.data.value)
+            .tooltipTitle(({ data: { id } }) => id)
+            .tooltipContent(({ data: { value } }) =>
+                value !== undefined && value !== null ? value.toString() : '',
             )
             .radiusScaleExponent(1)
-            .color('color')
-            // .strokeColor(() => '#333333')
             .labelOrientation('angular')(this.div);
 
         setTimeout(() => {
-            document
-                .querySelectorAll<HTMLElement>('.sunburst-viz .angular-label')
-                .forEach((el) => (el.style.fontSize = `${fontSize}px`));
             document.querySelector<HTMLElement>(
                 '.sunburst-tooltip',
             ).style.maxWidth = '900px';
@@ -145,7 +184,30 @@ export class Visual implements IVisual {
                 .querySelectorAll<HTMLElement>('.main-arc')
                 .forEach((el) => (el.style.strokeWidth = '0.5px'));
         });
+    }
 
-        this.events.renderingFinished(options);
+    private colorBuilder(metadata: MetaData): ColorBuilder {
+        if (metadata.objectsRules) {
+            const options = Object.values(
+                metadata.objectsRules.arc.arcColor.gradient.options,
+            )[0];
+
+            const gradientBuilder = (attr: string) =>
+                ['min', 'mid', 'max']
+                    .map((x) => options[x])
+                    .filter((x: GradientColor) => x !== undefined)
+                    .map((x: GradientColor) => x[attr]);
+
+            return (value) =>
+                value
+                    ? gradient(
+                          gradientBuilder('color'),
+                          gradientBuilder('value'),
+                          value,
+                      )
+                    : this.settings.arc.arcColor;
+        } else {
+            return (_: number) => this.settings.arc.arcColor;
+        }
     }
 }
