@@ -49,9 +49,7 @@
                     "parent_id": {
                         "max": 1
                     },
-                    "label": {
-                        "max": 1
-                    },
+                    "label": {},
                     "value": {
                         "max": 1
                     }
@@ -71,8 +69,8 @@
                             }
                         },
                         {
-                            "bind": {
-                                "to": "label"
+                            "for": {
+                                "in": "label"
                             }
                         },
                         {

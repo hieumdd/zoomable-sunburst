@@ -55,20 +55,15 @@ type ID = string | number | null;
 type Data = {
     id: ID;
     label: string;
+    labelNames: {
+        labelName?: string;
+        value?: string;
+    }[];
     color: string;
     size: 1;
     parent_id?: ID;
     value?: number;
 };
-
-// type Node = {
-//     id: ID;
-//     label: string;
-//     color: string;
-//     size: 1;
-//     parent_id?: ID;
-//     value?: number;
-// };
 
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
@@ -124,13 +119,15 @@ export class Visual implements IVisual {
         const { categories = [], values = [] } = dataView.categorical;
 
         const columnsData = [...categories, ...values]
-            .map(({ source: { roles }, objects, values }) => [
+            .map(({ source: { roles, displayName }, objects, values }) => [
                 Object.keys(roles)[0],
+                displayName,
                 objects || [...Array(values.length)],
                 values,
             ])
             .map(
-                ([roles, objects, values]: [
+                ([roles, displayName, objects, values]: [
+                    string,
                     string,
                     powerbi.DataViewObjects[],
                     powerbi.PrimitiveValue[],
@@ -140,19 +137,37 @@ export class Visual implements IVisual {
                         color: object
                             ? object.arc.arcColor.solid.color
                             : undefined,
+                        labelName: roles === 'label' ? displayName : undefined,
+                        valueName: roles === 'value' ? displayName : undefined,
                     })),
             );
 
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
-        const dataRaw: Data[] = zip(...columnsData).map((values) =>
-            values.reduce((acc, cur) => ({
-                ...acc,
-                ...cur,
-                size: 1,
-                color: cur.color || acc.color || colorBuilder(cur.value),
-            })),
-        );
+        const dataRaw: Data[] = zip(...columnsData)
+            .map((values) =>
+                values.reduce(
+                    (acc, cur) => ({
+                        ...acc,
+                        ...cur,
+                        size: 1,
+                        labelNames: [
+                            ...acc.labelNames,
+                            { labelName: cur.labelName, value: cur.label },
+                        ],
+                        color:
+                            cur.color || acc.color || colorBuilder(cur.value),
+                    }),
+                    { labelNames: [] },
+                ),
+            )
+            .map((point: Data) => ({
+                ...point,
+                label: point.labelNames
+                    .filter(({ labelName, value }) => labelName && value)
+                    .map(({ labelName, value }) => `${labelName}: ${value}`)
+                    .join('<br/>'),
+            }));
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
@@ -169,21 +184,17 @@ export class Visual implements IVisual {
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
             .sort((a, b) => b.data.value - a.data.value)
-            .tooltipTitle(({ data: { id } }) => id)
-            .tooltipContent(({ data: { value } }) =>
-                value !== undefined && value !== null ? value.toString() : '',
+            .tooltipTitle(({ data: { label } }) => label)
+            .tooltipContent(
+                ({ data: { valueName, value } }) =>
+                    `${valueName}: ${
+                        value !== undefined && value !== null
+                            ? value.toString()
+                            : ''
+                    }`,
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
-
-        setTimeout(() => {
-            document.querySelector<HTMLElement>(
-                '.sunburst-tooltip',
-            ).style.maxWidth = '900px';
-            document
-                .querySelectorAll<HTMLElement>('.main-arc')
-                .forEach((el) => (el.style.strokeWidth = '0.5px'));
-        });
     }
 
     private colorBuilder(metadata: MetaData): ColorBuilder {
