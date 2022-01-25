@@ -171,9 +171,8 @@ export class Visual implements IVisual {
                 ...point,
                 label: point.labels
                     .filter(({ displayName, value }) => displayName && value)
-                    .map(
-                        ({ displayName, value }) => `${displayName}: ${value}`,
-                    ),
+                    .map(({ displayName, value }) => `${displayName}: ${value}`)
+                    .join('<br/>'),
             }));
         console.log(dataRaw);
 
@@ -192,21 +191,12 @@ export class Visual implements IVisual {
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
             .sort((a, b) => b.data.value - a.data.value)
-            .tooltipTitle(({ data: { id } }) => id)
+            .tooltipTitle(({ data: { label } }) => label)
             .tooltipContent(({ data: { value } }) =>
                 value !== undefined && value !== null ? value.toString() : '',
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
-
-        setTimeout(() => {
-            document.querySelector<HTMLElement>(
-                '.sunburst-tooltip',
-            ).style.maxWidth = '900px';
-            document
-                .querySelectorAll<HTMLElement>('.main-arc')
-                .forEach((el) => (el.style.strokeWidth = '0.5px'));
-        });
     }
 
     private colorBuilder(metadata: MetaData): ColorBuilder {
