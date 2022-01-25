@@ -15,7 +15,10 @@ import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
-import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
+import {
+    dataRoleHelper,
+    dataViewWildcard,
+} from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { zip } from 'lodash';
@@ -55,20 +58,15 @@ type ID = string | number | null;
 type Data = {
     id: ID;
     label: string;
+    labels: {
+        displayName?: string;
+        value?: string;
+    }[];
     color: string;
     size: 1;
     parent_id?: ID;
     value?: number;
 };
-
-// type Node = {
-//     id: ID;
-//     label: string;
-//     color: string;
-//     size: 1;
-//     parent_id?: ID;
-//     value?: number;
-// };
 
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
@@ -124,13 +122,15 @@ export class Visual implements IVisual {
         const { categories = [], values = [] } = dataView.categorical;
 
         const columnsData = [...categories, ...values]
-            .map(({ source: { roles }, objects, values }) => [
+            .map(({ source: { roles, displayName }, objects, values }) => [
                 Object.keys(roles)[0],
+                displayName,
                 objects || [...Array(values.length)],
                 values,
             ])
             .map(
-                ([roles, objects, values]: [
+                ([roles, displayName, objects, values]: [
+                    string,
                     string,
                     powerbi.DataViewObjects[],
                     powerbi.PrimitiveValue[],
@@ -140,19 +140,42 @@ export class Visual implements IVisual {
                         color: object
                             ? object.arc.arcColor.solid.color
                             : undefined,
+                        displayName:
+                            roles === 'label' ? displayName : undefined,
                     })),
             );
 
+        console.log(columnsData);
+
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
-        const dataRaw: Data[] = zip(...columnsData).map((values) =>
-            values.reduce((acc, cur) => ({
-                ...acc,
-                ...cur,
-                size: 1,
-                color: cur.color || acc.color || colorBuilder(cur.value),
-            })),
-        );
+        const dataRaw: Data[] = zip(...columnsData)
+            .map((values) =>
+                values.reduce(
+                    (acc, cur) => ({
+                        ...acc,
+                        ...cur,
+                        size: 1,
+                        label: undefined,
+                        labels: [
+                            ...acc.labels,
+                            { displayName: cur.displayName, value: cur.label },
+                        ],
+                        color:
+                            cur.color || acc.color || colorBuilder(cur.value),
+                    }),
+                    { labels: [] },
+                ),
+            )
+            .map((point: Data) => ({
+                ...point,
+                label: point.labels
+                    .filter(({ displayName, value }) => displayName && value)
+                    .map(
+                        ({ displayName, value }) => `${displayName}: ${value}`,
+                    ),
+            }));
+        console.log(dataRaw);
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
