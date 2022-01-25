@@ -15,10 +15,7 @@ import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
-import {
-    dataRoleHelper,
-    dataViewWildcard,
-} from 'powerbi-visuals-utils-dataviewutils';
+import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { zip } from 'lodash';
@@ -58,8 +55,8 @@ type ID = string | number | null;
 type Data = {
     id: ID;
     label: string;
-    labels: {
-        displayName?: string;
+    labelNames: {
+        labelName?: string;
         value?: string;
     }[];
     color: string;
@@ -140,12 +137,10 @@ export class Visual implements IVisual {
                         color: object
                             ? object.arc.arcColor.solid.color
                             : undefined,
-                        displayName:
-                            roles === 'label' ? displayName : undefined,
+                        labelName: roles === 'label' ? displayName : undefined,
+                        valueName: roles === 'value' ? displayName : undefined,
                     })),
             );
-
-        console.log(columnsData);
 
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
@@ -156,25 +151,23 @@ export class Visual implements IVisual {
                         ...acc,
                         ...cur,
                         size: 1,
-                        label: undefined,
-                        labels: [
-                            ...acc.labels,
-                            { displayName: cur.displayName, value: cur.label },
+                        labelNames: [
+                            ...acc.labelNames,
+                            { labelName: cur.labelName, value: cur.label },
                         ],
                         color:
                             cur.color || acc.color || colorBuilder(cur.value),
                     }),
-                    { labels: [] },
+                    { labelNames: [] },
                 ),
             )
             .map((point: Data) => ({
                 ...point,
-                label: point.labels
-                    .filter(({ displayName, value }) => displayName && value)
-                    .map(({ displayName, value }) => `${displayName}: ${value}`)
+                label: point.labelNames
+                    .filter(({ labelName, value }) => labelName && value)
+                    .map(({ labelName, value }) => `${labelName}: ${value}`)
                     .join('<br/>'),
             }));
-        console.log(dataRaw);
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
@@ -192,8 +185,13 @@ export class Visual implements IVisual {
             .color(({ data: { color } }) => color)
             .sort((a, b) => b.data.value - a.data.value)
             .tooltipTitle(({ data: { label } }) => label)
-            .tooltipContent(({ data: { value } }) =>
-                value !== undefined && value !== null ? value.toString() : '',
+            .tooltipContent(
+                ({ data: { valueName, value } }) =>
+                    `${valueName}: ${
+                        value !== undefined && value !== null
+                            ? value.toString()
+                            : ''
+                    }`,
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
