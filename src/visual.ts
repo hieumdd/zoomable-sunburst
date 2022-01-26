@@ -15,7 +15,10 @@ import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
-import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
+import {
+    dataRoleHelper,
+    dataViewWildcard,
+} from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { zip } from 'lodash';
@@ -109,8 +112,16 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions) {
+        this.div.replaceChildren();
         const dataView: DataView = options.dataViews[0];
         this.settings = VisualSettings.parse<VisualSettings>(dataView);
+
+        if (
+            !dataRoleHelper.hasRoleInDataView(dataView, 'id') ||
+            !dataRoleHelper.hasRoleInDataView(dataView, 'parent_id')
+        ) {
+            return;
+        }
 
         const {
             viewport: { width, height },
@@ -173,8 +184,6 @@ export class Visual implements IVisual {
             .id(({ id }: Data) => id.toString())
             // @ts-expect-error
             .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
-
-        this.div.replaceChildren();
 
         Sunburst()
             .data(data)
