@@ -185,13 +185,8 @@ export class Visual implements IVisual {
             .color(({ data: { color } }) => color)
             .sort((a, b) => b.data.value - a.data.value)
             .tooltipTitle(({ data: { label } }) => label)
-            .tooltipContent(
-                ({ data: { valueName, value } }) =>
-                    `${valueName}: ${
-                        value !== undefined && value !== null
-                            ? value.toString()
-                            : ''
-                    }`,
+            .tooltipContent(({ data: { valueName, value } }) =>
+                valueName && value ? `${valueName}: ${value}` : '',
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
