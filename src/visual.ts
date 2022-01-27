@@ -35,6 +35,10 @@ type GradientOptions = {
     min: GradientColor;
     max: GradientColor;
     mid?: GradientColor;
+    nullColoringStrategy: {
+        strategy: 'noColor' | 'asZero' | 'specificColor';
+        color?: string;
+    };
 };
 
 type MetaData = powerbi.DataViewMetadata & {
@@ -155,6 +159,8 @@ export class Visual implements IVisual {
 
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
+        console.log(colorBuilder(null));
+
         const dataRaw: Data[] = zip(...columnsData)
             .map((values) =>
                 values.reduce(
@@ -179,6 +185,10 @@ export class Visual implements IVisual {
                     .map(({ labelName, value }) => `${labelName}: ${value}`)
                     .join('<br/>'),
             }));
+
+        console.log(columnsData);
+
+        // console.log(dataRaw.filter((i) => i.value === null));
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
@@ -213,6 +223,23 @@ export class Visual implements IVisual {
                     .filter((x: GradientColor) => x !== undefined)
                     .map((x: GradientColor) => x[attr]);
 
+            const {
+                nullColoringStrategy: { strategy, color },
+            } = options;
+
+            const fallback =
+                strategy === 'specificColor'
+                    ? color
+                    : strategy === 'asZero'
+                    ? gradient(
+                          gradientBuilder('color'),
+                          gradientBuilder('value'),
+                          0,
+                      )
+                    : this.settings.arc.arcColor;
+
+            console.log(fallback);
+
             return (value) =>
                 value
                     ? gradient(
@@ -220,7 +247,7 @@ export class Visual implements IVisual {
                           gradientBuilder('value'),
                           value,
                       )
-                    : this.settings.arc.arcColor;
+                    : fallback;
         } else {
             return (_: number) => this.settings.arc.arcColor;
         }
