@@ -21,8 +21,8 @@ import {
 } from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
-import { zip } from 'lodash';
-import { stratify } from 'd3-hierarchy';
+import { zip, sortBy } from 'lodash';
+import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
@@ -75,6 +75,24 @@ type Data = {
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
+
+const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
+    if (a.data.value && b.data.value) {
+        if (a.data.value < b.data.value) {
+            return -1;
+        } else if (a.data.value > b.data.value) {
+            return 1;
+        } else if (a.data.value === b.data.value) {
+            return 0;
+        }
+    } else if (a.data.value && !b.data.value) {
+        return -1;
+    } else if (!a.data.value && b.data.value) {
+        return 1;
+    } else if (!a.data.value && !b.data.value) {
+        return 0;
+    }
+};
 
 export class Visual implements IVisual {
     private div: HTMLElement;
@@ -159,36 +177,35 @@ export class Visual implements IVisual {
 
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
-        console.log(colorBuilder(null));
-
-        const dataRaw: Data[] = zip(...columnsData)
-            .map((values) =>
-                values.reduce(
-                    (acc, cur) => ({
-                        ...acc,
-                        ...cur,
-                        size: 1,
-                        labelNames: [
-                            ...acc.labelNames,
-                            { labelName: cur.labelName, value: cur.label },
-                        ],
-                        color:
-                            cur.color || acc.color || colorBuilder(cur.value),
-                    }),
-                    { labelNames: [] },
-                ),
-            )
-            .map((point: Data) => ({
-                ...point,
-                label: point.labelNames
-                    .filter(({ labelName, value }) => labelName && value)
-                    .map(({ labelName, value }) => `${labelName}: ${value}`)
-                    .join('<br/>'),
-            }));
-
-        console.log(columnsData);
-
-        // console.log(dataRaw.filter((i) => i.value === null));
+        const dataRaw: Data[] = sortBy(
+            zip(...columnsData)
+                .map((values) =>
+                    values.reduce(
+                        (acc, cur) => ({
+                            ...acc,
+                            ...cur,
+                            size: 1,
+                            labelNames: [
+                                ...acc.labelNames,
+                                { labelName: cur.labelName, value: cur.label },
+                            ],
+                            color:
+                                cur.color ||
+                                acc.color ||
+                                colorBuilder(cur.value),
+                        }),
+                        { labelNames: [] },
+                    ),
+                )
+                .map((point: Data) => ({
+                    ...point,
+                    label: point.labelNames
+                        .filter(({ labelName, value }) => labelName && value)
+                        .map(({ labelName, value }) => `${labelName}: ${value}`)
+                        .join('<br/>'),
+                })),
+            ({ value }) => value,
+        );
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
@@ -202,7 +219,7 @@ export class Visual implements IVisual {
             .showLabels(false)
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
-            .sort((a, b) => b.data.value - a.data.value)
+            .sort(sort)
             .tooltipTitle(({ data: { label } }) => label)
             .tooltipContent(({ data: { valueName, value } }) =>
                 valueName && value ? `${valueName}: ${value}` : '',
@@ -237,8 +254,6 @@ export class Visual implements IVisual {
                           0,
                       )
                     : this.settings.arc.arcColor;
-
-            console.log(fallback);
 
             return (value) =>
                 value
