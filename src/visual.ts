@@ -15,11 +15,14 @@ import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
-import { dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
+import {
+    dataRoleHelper,
+    dataViewWildcard,
+} from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
-import { zip } from 'lodash';
-import { stratify } from 'd3-hierarchy';
+import { zip, sortBy } from 'lodash';
+import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
 import Sunburst from 'sunburst-chart';
 
@@ -32,6 +35,10 @@ type GradientOptions = {
     min: GradientColor;
     max: GradientColor;
     mid?: GradientColor;
+    nullColoringStrategy: {
+        strategy: 'noColor' | 'asZero' | 'specificColor';
+        color?: string;
+    };
 };
 
 type MetaData = powerbi.DataViewMetadata & {
@@ -55,24 +62,37 @@ type ID = string | number | null;
 type Data = {
     id: ID;
     label: string;
+    labelNames: {
+        labelName?: string;
+        value?: string;
+    }[];
     color: string;
     size: 1;
     parent_id?: ID;
     value?: number;
 };
 
-// type Node = {
-//     id: ID;
-//     label: string;
-//     color: string;
-//     size: 1;
-//     parent_id?: ID;
-//     value?: number;
-// };
-
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
+
+const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
+    if (a.data.value && b.data.value) {
+        if (a.data.value < b.data.value) {
+            return -1;
+        } else if (a.data.value > b.data.value) {
+            return 1;
+        } else if (a.data.value === b.data.value) {
+            return 0;
+        }
+    } else if (a.data.value && !b.data.value) {
+        return -1;
+    } else if (!a.data.value && b.data.value) {
+        return 1;
+    } else if (!a.data.value && !b.data.value) {
+        return 0;
+    }
+};
 
 export class Visual implements IVisual {
     private div: HTMLElement;
@@ -114,8 +134,16 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions) {
+        this.div.replaceChildren();
         const dataView: DataView = options.dataViews[0];
         this.settings = VisualSettings.parse<VisualSettings>(dataView);
+
+        if (
+            !dataRoleHelper.hasRoleInDataView(dataView, 'id') ||
+            !dataRoleHelper.hasRoleInDataView(dataView, 'parent_id')
+        ) {
+            return;
+        }
 
         const {
             viewport: { width, height },
@@ -124,13 +152,15 @@ export class Visual implements IVisual {
         const { categories = [], values = [] } = dataView.categorical;
 
         const columnsData = [...categories, ...values]
-            .map(({ source: { roles }, objects, values }) => [
+            .map(({ source: { roles, displayName }, objects, values }) => [
                 Object.keys(roles)[0],
+                displayName,
                 objects || [...Array(values.length)],
                 values,
             ])
             .map(
-                ([roles, objects, values]: [
+                ([roles, displayName, objects, values]: [
+                    string,
                     string,
                     powerbi.DataViewObjects[],
                     powerbi.PrimitiveValue[],
@@ -140,26 +170,47 @@ export class Visual implements IVisual {
                         color: object
                             ? object.arc.arcColor.solid.color
                             : undefined,
+                        labelName: roles === 'label' ? displayName : undefined,
+                        valueName: roles === 'value' ? displayName : undefined,
                     })),
             );
 
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
-        const dataRaw: Data[] = zip(...columnsData).map((values) =>
-            values.reduce((acc, cur) => ({
-                ...acc,
-                ...cur,
-                size: 1,
-                color: cur.color || acc.color || colorBuilder(cur.value),
-            })),
+        const dataRaw: Data[] = sortBy(
+            zip(...columnsData)
+                .map((values) =>
+                    values.reduce(
+                        (acc, cur) => ({
+                            ...acc,
+                            ...cur,
+                            size: 1,
+                            labelNames: [
+                                ...acc.labelNames,
+                                { labelName: cur.labelName, value: cur.label },
+                            ],
+                            color:
+                                cur.color ||
+                                acc.color ||
+                                colorBuilder(cur.value),
+                        }),
+                        { labelNames: [] },
+                    ),
+                )
+                .map((point: Data) => ({
+                    ...point,
+                    label: point.labelNames
+                        .filter(({ labelName, value }) => labelName && value)
+                        .map(({ labelName, value }) => `${labelName}: ${value}`)
+                        .join('<br/>'),
+                })),
+            ({ value }) => value,
         );
 
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
             // @ts-expect-error
             .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
-
-        this.div.replaceChildren();
 
         Sunburst()
             .data(data)
@@ -168,22 +219,13 @@ export class Visual implements IVisual {
             .showLabels(false)
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
-            .sort((a, b) => b.data.value - a.data.value)
-            .tooltipTitle(({ data: { id } }) => id)
-            .tooltipContent(({ data: { value } }) =>
-                value !== undefined && value !== null ? value.toString() : '',
+            .sort(sort)
+            .tooltipTitle(({ data: { label } }) => label)
+            .tooltipContent(({ data: { valueName, value } }) =>
+                valueName && value ? `${valueName}: ${value}` : '',
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
-
-        setTimeout(() => {
-            document.querySelector<HTMLElement>(
-                '.sunburst-tooltip',
-            ).style.maxWidth = '900px';
-            document
-                .querySelectorAll<HTMLElement>('.main-arc')
-                .forEach((el) => (el.style.strokeWidth = '0.5px'));
-        });
     }
 
     private colorBuilder(metadata: MetaData): ColorBuilder {
@@ -198,6 +240,21 @@ export class Visual implements IVisual {
                     .filter((x: GradientColor) => x !== undefined)
                     .map((x: GradientColor) => x[attr]);
 
+            const {
+                nullColoringStrategy: { strategy, color },
+            } = options;
+
+            const fallback =
+                strategy === 'specificColor'
+                    ? color
+                    : strategy === 'asZero'
+                    ? gradient(
+                          gradientBuilder('color'),
+                          gradientBuilder('value'),
+                          0,
+                      )
+                    : this.settings.arc.arcColor;
+
             return (value) =>
                 value
                     ? gradient(
@@ -205,7 +262,7 @@ export class Visual implements IVisual {
                           gradientBuilder('value'),
                           value,
                       )
-                    : this.settings.arc.arcColor;
+                    : fallback;
         } else {
             return (_: number) => this.settings.arc.arcColor;
         }
