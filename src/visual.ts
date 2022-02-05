@@ -1,4 +1,4 @@
-// babel ^7.6
+// babel ^7.6. Required for Sunburst
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 
@@ -6,15 +6,18 @@ import 'regenerator-runtime/runtime';
 import './../style/visual.less';
 import powerbi from 'powerbi-visuals-api';
 
+// DataView
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
 
+// Formatting Options
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
+// Conditional Formatting
 import {
     dataRoleHelper,
     dataViewWildcard,
@@ -72,10 +75,13 @@ type Data = {
     value?: number;
 };
 
+// D3 Gradient builder
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
 
+
+// Sort algorithm
 const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     if (a.data.value && b.data.value) {
         if (a.data.value < b.data.value) {
@@ -94,6 +100,7 @@ const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     }
 };
 
+// Main visual class
 export class Visual implements IVisual {
     private div: HTMLElement;
     private settings: VisualSettings;
@@ -102,6 +109,7 @@ export class Visual implements IVisual {
         this.div = options.element;
     }
 
+    // Visual Settings
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
     ): VisualObjectInstance[] {
@@ -133,11 +141,13 @@ export class Visual implements IVisual {
         return objectEnumeration;
     }
 
+    // Render Function
     public update(options: VisualUpdateOptions) {
         this.div.replaceChildren();
         const dataView: DataView = options.dataViews[0];
         this.settings = VisualSettings.parse<VisualSettings>(dataView);
 
+        // Validation
         if (
             !dataRoleHelper.hasRoleInDataView(dataView, 'id') ||
             !dataRoleHelper.hasRoleInDataView(dataView, 'parent_id')
@@ -151,6 +161,7 @@ export class Visual implements IVisual {
 
         const { categories = [], values = [] } = dataView.categorical;
 
+        // Extract columns data
         const columnsData = [...categories, ...values]
             .map(({ source: { roles, displayName }, objects, values }) => [
                 Object.keys(roles)[0],
@@ -175,8 +186,10 @@ export class Visual implements IVisual {
                     })),
             );
 
+        // Color Builder Factory
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
+        // Key-Value Factory
         const dataRaw: Data[] = sortBy(
             zip(...columnsData)
                 .map((values) =>
@@ -207,11 +220,13 @@ export class Visual implements IVisual {
             ({ value }) => value,
         );
 
+        // Node Factory
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
             // @ts-expect-error
             .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
 
+        // Visual
         Sunburst()
             .data(data)
             .width(width)
@@ -228,6 +243,7 @@ export class Visual implements IVisual {
             .labelOrientation('angular')(this.div);
     }
 
+    // Color builder for Gradient based
     private colorBuilder(metadata: MetaData): ColorBuilder {
         if (metadata.objectsRules) {
             const options = Object.values(
