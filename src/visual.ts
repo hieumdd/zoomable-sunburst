@@ -139,7 +139,7 @@ export class Visual implements IVisual {
         switch (objectName) {
             case 'arc':
                 objectEnumeration.push({
-                    objectName: objectName,
+                    objectName,
                     properties: {
                         arcColor: this.settings.arc.arcColor,
                     },
@@ -151,6 +151,15 @@ export class Visual implements IVisual {
                         dataViewWildcard.DataViewWildcardMatchingOption
                             .InstancesAndTotals,
                     ),
+                });
+                break;
+            case 'tooltip':
+                objectEnumeration.push({
+                    objectName,
+                    properties: {
+                        tooltipFontSize: this.settings.tooltip.tooltipFontSize,
+                    },
+                    selector: null,
                 });
                 break;
         }
@@ -273,7 +282,11 @@ export class Visual implements IVisual {
                 `${svgX} ${parseInt(svgY) + 20} ${svgW} ${svgH}`,
             );
             const container = document.querySelector('.sunburst-viz > svg > g');
-            container.setAttribute('transform', 'scale(0.8)');
+            container.setAttribute('transform', 'scale(0.7)');
+
+            document.querySelector<HTMLElement>(
+                '.sunburst-tooltip',
+            ).style.fontSize = `${this.settings.tooltip.tooltipFontSize}px`;
         });
     }
 
