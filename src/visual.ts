@@ -27,6 +27,7 @@ import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 import { zip, sortBy } from 'lodash';
 import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
+import { select, pointer } from 'd3-selection';
 import Sunburst from 'sunburst-chart';
 
 type GradientColor = {
@@ -76,7 +77,7 @@ type Data = {
 };
 
 /**
- *
+ * D3 Gradient
  * @param domain Gradient domain
  * @param range Value range
  * @param value Value
@@ -87,7 +88,7 @@ const gradient = (domain: any[], range: number[], value: number): string =>
     scaleLinear().domain(domain).range(range)(value);
 
 /**
- *
+ * Sort function when null exists
  * @param a {HierarchyNode<Data>} Node
  * @param b {HierarchyNode<Data>} Node
  * @returns {boolean} Sort
@@ -122,7 +123,7 @@ export class Visual implements IVisual {
     }
 
     /**
-     *
+     * Formatting Panes Options
      * @param options Formatting options
      * @returns Object enums
      */
@@ -167,7 +168,7 @@ export class Visual implements IVisual {
     }
 
     /**
-     *
+     * Render
      * @param options Visual Update Options
      */
     public update(options: VisualUpdateOptions) {
@@ -270,27 +271,32 @@ export class Visual implements IVisual {
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
 
-        setTimeout(() => {
-            const svg = document.querySelector<SVGElement>(
-                '.sunburst-viz > svg',
-            );
-            const [svgX, svgY, svgW, svgH] = svg
-                .getAttribute('viewBox')
-                .split(' ');
-            svg.setAttribute(
-                'viewBox',
-                `${svgX} ${parseInt(svgY) + 20} ${svgW} ${svgH}`,
-            );
-            const container = document.querySelector('.sunburst-viz > svg > g');
-            container.setAttribute('transform', 'scale(0.7)');
+        // Post render styles
+        const el = select('.sunburst-viz');
+        const tooltip = select('.sunburst-tooltip');
+        tooltip.style(
+            'font-size',
+            `${this.settings.tooltip.tooltipFontSize}px`,
+        );
 
-            document.querySelector<HTMLElement>(
-                '.sunburst-tooltip',
-            ).style.fontSize = `${this.settings.tooltip.tooltipFontSize}px`;
+        // Tooltip position
+        el.on('mousemove', (ev) => {
+            const [mouseX, mouseY] = pointer(ev);
+            tooltip
+                .style('left', `${mouseX}px`)
+                .style('top', `${mouseY}px`)
+                .style(
+                    'transform',
+                    `translate(-${(mouseX / width) * 100}%, -${mouseY * 0.5}%)`,
+                );
         });
     }
 
-    // Color builder for Gradient based
+    /**
+     * Color builder for Gradient based
+     * @param metadata
+     * @returns
+     */
     private colorBuilder(metadata: MetaData): ColorBuilder {
         if (metadata.objectsRules) {
             const options = Object.values(
