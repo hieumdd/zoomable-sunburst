@@ -75,13 +75,24 @@ type Data = {
     value?: number;
 };
 
-// D3 Gradient builder
+/**
+ * 
+ * @param domain Gradient domain
+ * @param range Value range
+ * @param value Value
+ * @returns {string} Hex color
+ */
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
 
 
-// Sort algorithm
+/**
+ * 
+ * @param a {HierarchyNode<Data>} Node
+ * @param b {HierarchyNode<Data>} Node
+ * @returns {boolean} Sort
+ */
 const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     if (a.data.value && b.data.value) {
         if (a.data.value < b.data.value) {
@@ -100,7 +111,9 @@ const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     }
 };
 
-// Main visual class
+/**
+ * Visual Class
+ */
 export class Visual implements IVisual {
     private div: HTMLElement;
     private settings: VisualSettings;
@@ -109,7 +122,11 @@ export class Visual implements IVisual {
         this.div = options.element;
     }
 
-    // Visual Settings
+    /**
+     * 
+     * @param options Formatting options
+     * @returns Object enums
+     */
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
     ): VisualObjectInstance[] {
@@ -141,7 +158,10 @@ export class Visual implements IVisual {
         return objectEnumeration;
     }
 
-    // Render Function
+    /**
+     * 
+     * @param options Visual Update Options
+     */
     public update(options: VisualUpdateOptions) {
         this.div.replaceChildren();
         const dataView: DataView = options.dataViews[0];
