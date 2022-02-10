@@ -76,7 +76,7 @@ type Data = {
 };
 
 /**
- * 
+ *
  * @param domain Gradient domain
  * @param range Value range
  * @param value Value
@@ -86,9 +86,8 @@ const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
 
-
 /**
- * 
+ *
  * @param a {HierarchyNode<Data>} Node
  * @param b {HierarchyNode<Data>} Node
  * @returns {boolean} Sort
@@ -123,7 +122,7 @@ export class Visual implements IVisual {
     }
 
     /**
-     * 
+     *
      * @param options Formatting options
      * @returns Object enums
      */
@@ -159,7 +158,7 @@ export class Visual implements IVisual {
     }
 
     /**
-     * 
+     *
      * @param options Visual Update Options
      */
     public update(options: VisualUpdateOptions) {
@@ -261,6 +260,21 @@ export class Visual implements IVisual {
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
+
+        setTimeout(() => {
+            const svg = document.querySelector<SVGElement>(
+                '.sunburst-viz > svg',
+            );
+            const [svgX, svgY, svgW, svgH] = svg
+                .getAttribute('viewBox')
+                .split(' ');
+            svg.setAttribute(
+                'viewBox',
+                `${svgX} ${parseInt(svgY) + 20} ${svgW} ${svgH}`,
+            );
+            const container = document.querySelector('.sunburst-viz > svg > g');
+            container.setAttribute('transform', 'scale(0.8)');
+        });
     }
 
     // Color builder for Gradient based
