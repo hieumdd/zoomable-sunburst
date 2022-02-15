@@ -1,4 +1,4 @@
-// babel ^7.6
+// babel ^7.6. Required for Sunburst
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 
@@ -6,15 +6,18 @@ import 'regenerator-runtime/runtime';
 import './../style/visual.less';
 import powerbi from 'powerbi-visuals-api';
 
+// DataView
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
 
+// Formatting Options
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import { VisualSettings } from './settings';
 
+// Conditional Formatting
 import {
     dataRoleHelper,
     dataViewWildcard,
@@ -24,6 +27,7 @@ import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 import { zip, sortBy } from 'lodash';
 import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
+import { select, pointer } from 'd3-selection';
 import Sunburst from 'sunburst-chart';
 
 type GradientColor = {
@@ -72,10 +76,23 @@ type Data = {
     value?: number;
 };
 
+/**
+ * D3 Gradient
+ * @param domain Gradient domain
+ * @param range Value range
+ * @param value Value
+ * @returns {string} Hex color
+ */
 const gradient = (domain: any[], range: number[], value: number): string =>
     // @ts-expect-error
     scaleLinear().domain(domain).range(range)(value);
 
+/**
+ * Sort function when null exists
+ * @param a {HierarchyNode<Data>} Node
+ * @param b {HierarchyNode<Data>} Node
+ * @returns {boolean} Sort
+ */
 const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     if (a.data.value && b.data.value) {
         if (a.data.value < b.data.value) {
@@ -94,6 +111,9 @@ const sort = (a: HierarchyNode<Data>, b: HierarchyNode<Data>): number => {
     }
 };
 
+/**
+ * Visual Class
+ */
 export class Visual implements IVisual {
     private div: HTMLElement;
     private settings: VisualSettings;
@@ -102,6 +122,11 @@ export class Visual implements IVisual {
         this.div = options.element;
     }
 
+    /**
+     * Formatting Panes Options
+     * @param options Formatting options
+     * @returns Object enums
+     */
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
     ): VisualObjectInstance[] {
@@ -115,7 +140,7 @@ export class Visual implements IVisual {
         switch (objectName) {
             case 'arc':
                 objectEnumeration.push({
-                    objectName: objectName,
+                    objectName,
                     properties: {
                         arcColor: this.settings.arc.arcColor,
                     },
@@ -129,15 +154,29 @@ export class Visual implements IVisual {
                     ),
                 });
                 break;
+            case 'tooltip':
+                objectEnumeration.push({
+                    objectName,
+                    properties: {
+                        tooltipFontSize: this.settings.tooltip.tooltipFontSize,
+                    },
+                    selector: null,
+                });
+                break;
         }
         return objectEnumeration;
     }
 
+    /**
+     * Render
+     * @param options Visual Update Options
+     */
     public update(options: VisualUpdateOptions) {
         this.div.replaceChildren();
         const dataView: DataView = options.dataViews[0];
         this.settings = VisualSettings.parse<VisualSettings>(dataView);
 
+        // Validation
         if (
             !dataRoleHelper.hasRoleInDataView(dataView, 'id') ||
             !dataRoleHelper.hasRoleInDataView(dataView, 'parent_id')
@@ -151,6 +190,7 @@ export class Visual implements IVisual {
 
         const { categories = [], values = [] } = dataView.categorical;
 
+        // Extract columns data
         const columnsData = [...categories, ...values]
             .map(({ source: { roles, displayName }, objects, values }) => [
                 Object.keys(roles)[0],
@@ -168,15 +208,18 @@ export class Visual implements IVisual {
                     zip(values, objects).map(([value, object]) => ({
                         [roles]: value,
                         color: object
-                            ? object.arc.arcColor.solid.color
+                            ? // @ts-expect-error
+                              object.arc.arcColor.solid.color
                             : undefined,
                         labelName: roles === 'label' ? displayName : undefined,
                         valueName: roles === 'value' ? displayName : undefined,
                     })),
             );
 
+        // Color Builder Factory
         const colorBuilder = this.colorBuilder(<MetaData>dataView.metadata);
 
+        // Key-Value Factory
         const dataRaw: Data[] = sortBy(
             zip(...columnsData)
                 .map((values) =>
@@ -194,7 +237,7 @@ export class Visual implements IVisual {
                                 acc.color ||
                                 colorBuilder(cur.value),
                         }),
-                        { labelNames: [] },
+                        { labelNames: [], color: undefined },
                     ),
                 )
                 .map((point: Data) => ({
@@ -207,11 +250,13 @@ export class Visual implements IVisual {
             ({ value }) => value,
         );
 
+        // Node Factory
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
             // @ts-expect-error
             .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
 
+        // Visual
         Sunburst()
             .data(data)
             .width(width)
@@ -226,8 +271,33 @@ export class Visual implements IVisual {
             )
             .radiusScaleExponent(1)
             .labelOrientation('angular')(this.div);
+
+        // Post render styles
+        const el = select('.sunburst-viz');
+        const tooltip = select('.sunburst-tooltip');
+        tooltip.style(
+            'font-size',
+            `${this.settings.tooltip.tooltipFontSize}px`,
+        );
+
+        // Tooltip position
+        el.on('mousemove', (ev) => {
+            const [mouseX, mouseY] = pointer(ev);
+            tooltip
+                .style('left', `${mouseX}px`)
+                .style('top', `${mouseY}px`)
+                .style(
+                    'transform',
+                    `translate(-${(mouseX / width) * 100}%, -${mouseY * 0.5}%)`,
+                );
+        });
     }
 
+    /**
+     * Color builder for Gradient based
+     * @param metadata
+     * @returns
+     */
     private colorBuilder(metadata: MetaData): ColorBuilder {
         if (metadata.objectsRules) {
             const options = Object.values(
