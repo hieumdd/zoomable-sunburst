@@ -232,9 +232,12 @@ export class Visual implements IVisual {
                                 ...acc.labelNames,
                                 { labelName: cur.labelName, value: cur.label },
                             ],
-                            color: cur.color || colorBuilder(cur.value),
+                            color:
+                                cur.color ||
+                                acc.color ||
+                                colorBuilder(cur.value),
                         }),
-                        { labelNames: [] },
+                        { labelNames: [], color: undefined },
                     ),
                 )
                 .map((point: Data) => ({
