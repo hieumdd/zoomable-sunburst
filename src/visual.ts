@@ -208,8 +208,8 @@ export class Visual implements IVisual {
                     zip(values, objects).map(([value, object]) => ({
                         [roles]: value,
                         color: object
-                            // @ts-expect-error
-                            ? object.arc.arcColor.solid.color
+                            ? // @ts-expect-error
+                              object.arc.arcColor.solid.color
                             : undefined,
                         labelName: roles === 'label' ? displayName : undefined,
                         valueName: roles === 'value' ? displayName : undefined,
@@ -232,9 +232,7 @@ export class Visual implements IVisual {
                                 ...acc.labelNames,
                                 { labelName: cur.labelName, value: cur.label },
                             ],
-                            color:
-                                cur.color ||
-                                colorBuilder(cur.value),
+                            color: cur.color || colorBuilder(cur.value),
                         }),
                         { labelNames: [] },
                     ),
