@@ -1,4 +1,7 @@
 {
+    "sorting": {
+        "default": {}
+    },
     "dataRoles": [
         {
             "displayName": "ID",
