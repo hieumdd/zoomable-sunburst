@@ -84,7 +84,7 @@ type Data = {
  * @returns {string} Hex color
  */
 const gradient = (domain: any[], range: number[], value: number): string =>
-    // @ts-expect-error
+    // @ts-expect-error: ignore
     scaleLinear().domain(domain).range(range)(value);
 
 /**
@@ -130,8 +130,8 @@ export class Visual implements IVisual {
     public enumerateObjectInstances(
         options: EnumerateVisualObjectInstancesOptions,
     ): VisualObjectInstance[] {
-        let objectName = options.objectName;
-        let objectEnumeration: VisualObjectInstance[] = [];
+        const objectName = options.objectName;
+        const objectEnumeration: VisualObjectInstance[] = [];
 
         if (!this.settings || !this.settings.arc) {
             return objectEnumeration;
@@ -208,7 +208,7 @@ export class Visual implements IVisual {
                     zip(values, objects).map(([value, object]) => ({
                         [roles]: value,
                         color: object
-                            ? // @ts-expect-error
+                            ? // @ts-expect-error: ignore
                               object.arc.arcColor.solid.color
                             : undefined,
                         labelName: roles === 'label' ? displayName : undefined,
@@ -253,7 +253,7 @@ export class Visual implements IVisual {
         // Node Factory
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
-            // @ts-expect-error
+            // @ts-expect-error: ignore
             .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
 
         // Visual
