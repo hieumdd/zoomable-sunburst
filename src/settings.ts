@@ -5,8 +5,10 @@ import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 
 export class ArcSetings {
     public arcColor: string = '#991b1b';
-    public objectRules: any = null;
+    public strokeColor: string = '#000000';
+    public strokeWidth: number = 1;
 }
+
 export class TooltipSettings {
     public tooltipFontSize: number = 16;
 }

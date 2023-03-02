@@ -18,16 +18,13 @@ import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInst
 import { VisualSettings } from './settings';
 
 // Conditional Formatting
-import {
-    dataRoleHelper,
-    dataViewWildcard,
-} from 'powerbi-visuals-utils-dataviewutils';
+import { dataRoleHelper, dataViewWildcard } from 'powerbi-visuals-utils-dataviewutils';
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 
 import { zip, sortBy } from 'lodash';
 import { HierarchyNode, stratify } from 'd3-hierarchy';
 import { scaleLinear } from 'd3-scale';
-import { select, pointer } from 'd3-selection';
+import { select, selectAll } from 'd3-selection';
 import Sunburst from 'sunburst-chart';
 
 type GradientColor = {
@@ -143,14 +140,16 @@ export class Visual implements IVisual {
                     objectName,
                     properties: {
                         arcColor: this.settings.arc.arcColor,
+                        strokeColor: this.settings.arc.strokeColor,
+                        strokeWidth: this.settings.arc.strokeWidth,
                     },
                     propertyInstanceKind: {
                         arcColor: VisualEnumerationInstanceKinds.ConstantOrRule,
+                        strokeColor: VisualEnumerationInstanceKinds.ConstantOrRule,
                     },
                     altConstantValueSelector: null,
                     selector: dataViewWildcard.createDataViewWildcardSelector(
-                        dataViewWildcard.DataViewWildcardMatchingOption
-                            .InstancesAndTotals,
+                        dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals,
                     ),
                 });
                 break;
@@ -232,10 +231,7 @@ export class Visual implements IVisual {
                                 ...acc.labelNames,
                                 { labelName: cur.labelName, value: cur.label },
                             ],
-                            color:
-                                cur.color ||
-                                acc.color ||
-                                colorBuilder(cur.value),
+                            color: cur.color || acc.color || colorBuilder(cur.value),
                         }),
                         { labelNames: [], color: undefined },
                     ),
@@ -253,8 +249,7 @@ export class Visual implements IVisual {
         // Node Factory
         const data = stratify<Data>()
             .id(({ id }: Data) => id.toString())
-            // @ts-expect-error: ignore
-            .parentId(({ parent_id }: Data) => parent_id)(dataRaw);
+            .parentId(({ parent_id }: Data) => parent_id as string)(dataRaw);
 
         // Visual
         Sunburst()
@@ -264,6 +259,7 @@ export class Visual implements IVisual {
             .showLabels(false)
             .size(({ data: { size } }) => size)
             .color(({ data: { color } }) => color)
+            .strokeColor(() => this.settings.arc.strokeColor)
             .sort(sort)
             .tooltipTitle(({ data: { label } }) => label)
             .tooltipContent(({ data: { valueName, value } }) =>
@@ -273,24 +269,17 @@ export class Visual implements IVisual {
             .labelOrientation('angular')(this.div);
 
         // Post render styles
-        const el = select('.sunburst-viz');
-        const tooltip = select('.sunburst-tooltip');
-        tooltip.style(
+        select('.sunburst-viz .tooltip').style(
             'font-size',
             `${this.settings.tooltip.tooltipFontSize}px`,
         );
 
-        // Tooltip position
-        el.on('mousemove', (ev) => {
-            const [mouseX, mouseY] = pointer(ev);
-            tooltip
-                .style('left', `${mouseX}px`)
-                .style('top', `${mouseY}px`)
-                .style(
-                    'transform',
-                    `translate(-${(mouseX / width) * 100}%, -${mouseY * 0.5}%)`,
-                );
-        });
+        setTimeout(() => {
+            selectAll('.sunburst-viz .main-arc').style(
+                'stroke-width',
+                `${this.settings.arc.strokeWidth}px`,
+            );
+        }, 100);
     }
 
     /**
@@ -300,9 +289,7 @@ export class Visual implements IVisual {
      */
     private colorBuilder(metadata: MetaData): ColorBuilder {
         if (metadata.objectsRules) {
-            const options = Object.values(
-                metadata.objectsRules.arc.arcColor.gradient.options,
-            )[0];
+            const options = Object.values(metadata.objectsRules.arc.arcColor.gradient.options)[0];
 
             const gradientBuilder = (attr: string) =>
                 ['min', 'mid', 'max']
@@ -318,20 +305,12 @@ export class Visual implements IVisual {
                 strategy === 'specificColor'
                     ? color
                     : strategy === 'asZero'
-                    ? gradient(
-                          gradientBuilder('color'),
-                          gradientBuilder('value'),
-                          0,
-                      )
+                    ? gradient(gradientBuilder('color'), gradientBuilder('value'), 0)
                     : this.settings.arc.arcColor;
 
             return (value) =>
                 value
-                    ? gradient(
-                          gradientBuilder('color'),
-                          gradientBuilder('value'),
-                          value,
-                      )
+                    ? gradient(gradientBuilder('color'), gradientBuilder('value'), value)
                     : fallback;
         } else {
             return (_: number) => this.settings.arc.arcColor;

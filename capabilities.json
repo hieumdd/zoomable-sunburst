@@ -35,6 +35,24 @@
                             }
                         }
                     }
+                },
+                "strokeColor": {
+                    "displayName": "Stroke Color",
+                    "description": "Slice Stroke Color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "strokeWidth": {
+                    "displayName": "Stroke Width (px)",
+                    "description": "Slice Stroke Width",
+                    "type": {
+                        "numeric": true
+                    }
                 }
             }
         },
@@ -42,7 +60,7 @@
             "displayName": "Tooltip",
             "properties": {
                 "tooltipFontSize": {
-                    "displayName": "Font Size",
+                    "displayName": "Font Size (px)",
                     "description": "",
                     "type": {
                         "numeric": true
