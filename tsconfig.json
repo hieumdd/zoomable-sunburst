@@ -9,9 +9,10 @@
         "moduleResolution": "node",
         "declaration": true,
         "lib": [
-            "es2019",
+            "es2017",
             "dom"
-        ]
+        ],
+        "allowSyntheticDefaultImports": true
     },
     "files": [
         "./src/visual.ts"
